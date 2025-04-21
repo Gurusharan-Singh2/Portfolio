@@ -1,8 +1,10 @@
+import PortfolioPageComponent from '@/components/PortfolioPage'
 import React from 'react'
+
 
 const PortfolioPage = () => {
   return (
-    <div>PortfolioPage</div>
+    <PortfolioPageComponent/>
   )
 }
 

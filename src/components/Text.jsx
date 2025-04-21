@@ -14,7 +14,7 @@ export default function Text() {
   
   
   return (
-    <div className="flex flex-col items-center justify-center h-[40rem] ">
+    <div className=" h-[98px] lg:h-48">
       
       <TypewriterEffect words={words} />
       

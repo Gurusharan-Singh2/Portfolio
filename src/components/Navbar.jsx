@@ -1,5 +1,5 @@
 "use client";
-import { motion } from "framer-motion";
+import { motion, stagger } from "framer-motion";
 import React, { useState } from "react";
 import Link from "next/link";
 import Switch from "@/utils/Switch";
@@ -13,6 +13,58 @@ import { FloatingNav } from "./ui/floating-navbar";
 const Navbar = () => {
   const [open, setOpen] = useState(false);
   const { theme, setTheme } = Store();
+
+  const topVariants={
+    closed:{
+      rotate:0,
+    },
+    opened:{
+      rotate:45,
+      backgroundColor:"rgb(255,255,255)",
+    }
+  }
+  const centerVariants={
+    closed:{
+      opacity:1
+    },
+    opened:{
+      opacity:0
+    }
+  }
+  const bottomVariants={
+    closed:{
+      rotate:0,
+    },
+    opened:{
+      rotate:-45,
+      backgroundColor:"rgb(255,255,255)",
+    }
+  }
+
+  const listVariants={
+    closed:{
+      x:"100vw"
+    },
+    opened:{
+      x:0,
+      transition:{
+        when:"beforeChildren",
+        staggerChildren:0.2
+      }
+    }
+  }
+  const listItemVariants={
+    closed:{
+      x:-10,
+      opacity:0
+    },
+    opened:{
+      x:0,
+      opacity:1
+    }
+  }
+
+
 
   // Floating nav items using react-icons
   const navItems = [
@@ -57,7 +109,7 @@ const Navbar = () => {
         </div>
 
         {/* Hamburger Menu (Mobile) */}
-        <div className="flex lg:w-full justify-between ">
+        <div className="flex lg:w-full gap-6 lg:gap-3 ">
         <FloatingNav navItems={navItems} />
         <Switch />
         <div className="block md:hidden">
@@ -65,29 +117,29 @@ const Navbar = () => {
             className="w-10 h-8 flex flex-col justify-between z-50 relative transition-all ease-linear duration-300"
             onClick={() => setOpen(!open)}
           >
-            {open ? (
-              <>
-                <div className="absolute w-10 h-1 bg-white rounded rotate-45 top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2"></div>
-                <div className="absolute w-10 h-1 bg-white rounded -rotate-45 top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2"></div>
-              </>
-            ) : (
-              <>
-                <div className="w-10 h-1 bg-black dark:bg-white rounded"></div>
-                <div className="w-10 h-1 bg-black dark:bg-white rounded"></div>
-                <div className="w-10 h-1 bg-black dark:bg-white rounded"></div>
-              </>
-            )}
+            
+            
+                <motion.div variants={topVariants} animate={open?"opened":"closed"} className="w-10 h-1 bg-black dark:bg-white rounded origin-left"></motion.div>
+                <motion.div variants={centerVariants} animate={open?"opened":"closed"}  className="w-10 h-1 bg-black dark:bg-white rounded"></motion.div>
+                <motion.div variants={bottomVariants} animate={open?"opened":"closed"}  className="w-10 h-1 bg-black dark:bg-white rounded origin-left"></motion.div>
+            
+         
           </button>
 
           {/* Mobile Menu Overlay */}
           {open && (
-            <div className="absolute top-0 left-0 w-screen h-screen bg-black text-white flex flex-col items-center justify-center gap-8 text-4xl">
+            <motion.div variants={listVariants} initial="closed"  animate="opened" className="absolute top-0 left-0 w-screen h-screen bg-black text-white flex flex-col items-center justify-center gap-8 text-4xl">
               {navItems.map((item, i) => (
-                <Link href={item.link} key={i}>
-                  {item.name}
+                <motion.div variants={listItemVariants}    key={i}>
+
+               
+                <Link href={item.link} >
+
+                <button onClick={()=>setOpen(false)}>{item.name}</button>  
                 </Link>
+                </motion.div>
               ))}
-            </div>
+            </motion.div>
           )}
         </div>
         </div>
