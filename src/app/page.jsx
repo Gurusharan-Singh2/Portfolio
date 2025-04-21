@@ -45,11 +45,11 @@ const Homepage = () => {
           }}
           className=" inset-0 z-10 flex justify-center items-center overflow-hidden border-4 border-violet-500 bg-violet-500 shadow-lg relative w-[350px] h-[350px] lg:w-[450px] lg:h-[450px]"
         >
-          <div className="absolute inset-0 flex justify-center items-center z-20">
+          <div className="absolute inset-0 flex justify-center  z-20">
             <img
-              src="/H.png"
+              src="/C.webp"
               alt="Logo"
-              className="object-cover w-full h-full p-6"
+              className="object-contain w-full h-full "
             />
           </div>
         </motion.div>
