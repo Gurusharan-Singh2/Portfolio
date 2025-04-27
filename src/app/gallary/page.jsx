@@ -4,7 +4,7 @@ import React from 'react'
 
 const page = () => {
   return (
-    <GallerySection/>
+    <h1>Gallary</h1>
   )
 }
 

@@ -29,7 +29,8 @@ const AboutPageComponent = () => {
 >
   Hello! I'm a motivated MERN Stack Developer with a passion for building scalable web applications and beautiful, responsive user interfaces. 
   Skilled in React, Next.js, Node.js, and cloud deployment, I love turning creative ideas into real-world, impactful projects. 
-  Let's innovate and build something extraordinary together!
+  <p>Let&apos;s innovate and build something extraordinary together!</p>
+
 </motion.p>
 
       <img 
