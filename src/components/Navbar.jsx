@@ -84,6 +84,11 @@ const Navbar = () => {
       icon: <FaBriefcase className="h-4 w-4 text-neutral-500 dark:text-white" />,
     },
     {
+      name: "Gallary",
+      link: "/gallary",
+      icon: <FaBriefcase className="h-4 w-4 text-neutral-500 dark:text-white" />,
+    },
+    {
       name: "Contact",
       link: "/contact",
       icon: <FaEnvelope className="h-4 w-4 text-neutral-500 dark:text-white" />,

@@ -3,6 +3,7 @@ import React, { useEffect } from 'react';
 import Navbar from './Navbar';
 import { AnimatePresence,motion } from 'framer-motion';
 import { usePathname } from 'next/navigation';
+import Footer from './Footer';
 
 
 
@@ -21,7 +22,7 @@ const CommonLayout = ({ children }) => {
     <AnimatePresence mode='wait'>
 
     
-    <div key={pathname} className="w-screen min-h-screen h-auto bg-gradient-to-b from-blue-200 to-violet-200 dark:bg-none dark:bg-zinc-900">
+    <div key={pathname} className="max-w-screen min-h-screen h-auto  bg-gradient-to-b from-blue-200 to-violet-200 dark:bg-none dark:bg-zinc-900">
       <motion.div className='h-screen w-screen fixed bg-black dark:bg-white rounded-b-[100px] z-40'
       animate={{height:"0vh"}} 
       exit={{
@@ -52,6 +53,7 @@ const CommonLayout = ({ children }) => {
       <Navbar />
      
       {children}
+      <Footer/>
     </div>
     </AnimatePresence>
   );
