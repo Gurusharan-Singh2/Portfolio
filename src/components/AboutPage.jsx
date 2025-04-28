@@ -27,10 +27,9 @@ const AboutPageComponent = () => {
   animate={{ opacity: 1, y: 0 }}
   transition={{ duration: 1 }}
 >
-  Hello! I am  motivated MERN Stack Developer with a passion for building scalable web applications and beautiful, responsive user interfaces. 
+  Hello! Im a motivated MERN Stack Developer with a passion for building scalable web applications and beautiful, responsive user interfaces. 
   Skilled in React, Next.js, Node.js, and cloud deployment, I love turning creative ideas into real-world, impactful projects. 
-  <p>Lets innovate and build something extraordinary together!</p>
-
+  Lets innovate and build something extraordinary together!
 </motion.p>
 
       <img 
