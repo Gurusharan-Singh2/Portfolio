@@ -26,7 +26,7 @@ export default function UnderDevelopment() {
 
         <div className="text-center">
           <h1 className="text-3xl font-bold mb-2">Page Under Development</h1>
-          <p className="text-lg text-gray-600">We're working hard to bring this page to life. Stay tuned!</p>
+          <p className="text-lg text-gray-600">We are working hard to bring this page to life. Stay tuned!</p>
         </div>
       </motion.div>
 
