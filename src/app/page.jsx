@@ -6,6 +6,7 @@ import { FaLinkedinIn, FaGithub } from "react-icons/fa";
 import { IoLogoInstagram } from "react-icons/io5";
 import { useRef } from "react";
 import QuoteRotator from "@/components/QuteGenerator";
+import Link from "next/link";
 
 const container = {
   hidden: { opacity: 0 },
@@ -78,12 +79,18 @@ const Homepage = () => {
           I transform ideas into interactive digital experiences, blending clean code with creative design. Specializing in frontend and backend technologies, I create seamless, user-friendly applications that solve real problems and inspire users.
           </motion.p>
           <motion.div variants={item} className="flex gap-4">
+            <Link href='/portfolio'>
+            
             <button className="px-4 py-2 rounded ring-1 ring-black bg-black dark:bg-white text-white dark:text-black hover:bg-violet-500 hover:ring-violet-500 hover:text-black hover:scale-110 transition-all ease-linear duration-200 hover:font-bold">
               View My Work
             </button>
+            </Link>
+            <Link href='/contact'>
+          
             <button className="px-4 py-2 rounded ring-1 ring-black dark:ring-white hover:bg-black hover:text-white hover:font-semibold hover:scale-110 transition-all ease-linear duration-200 dark:hover:bg-violet-500 dark:hover:ring-violet-500">
               Contact Me
             </button>
+              </Link>
           </motion.div>
         </motion.div>
       </div>
