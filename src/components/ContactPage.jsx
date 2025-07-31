@@ -43,13 +43,13 @@ const ContactPageComponent = () => {
 
   return (
     <motion.div
-      className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center px-4 sm:px-6 py-10 transition-colors duration-300"
+      className="min-h-screen  flex items-center justify-center px-4 sm:px-6 py-10 transition-colors duration-300"
       initial={{ y: '-100vh' }}
       animate={{ y: 0 }}
       transition={{ duration: 0.8 }}
     >
       <motion.div
-        className="w-full max-w-2xl bg-white dark:bg-gray-800 border-2 dark:border-gray-500 border-violet-200 shadow-xl rounded-2xl p-6 sm:p-8 md:p-12 transition-colors duration-300"
+        className="w-full max-w-2xl   bg-violet-300 dark:bg-gray-600 border-none shadow-xl rounded-2xl p-6 sm:p-8 md:p-12 transition-colors duration-300"
         initial="initial"
         animate="animate"
       >
@@ -125,7 +125,7 @@ const ContactPageComponent = () => {
               <button
                 type="submit"
                 disabled={isSubmitting}
-                className="w-full bg-violet-600 text-white py-3 text-sm sm:text-base rounded-lg font-semibold hover:bg-violet-700 transition duration-300"
+                className="w-full bg-violet-600 text-white py-3 text-sm sm:text-base rounded-lg font-semibold hover:bg-violet-800 hover:scale-110  transition duration-300"
               >
                 {isSubmitting ? 'Sending...' : 'Send Message'}
               </button>
