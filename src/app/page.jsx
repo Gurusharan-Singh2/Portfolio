@@ -104,7 +104,7 @@ const Homepage = () => {
             transition={{ duration: 0.4}}
             viewport={{ once: false, amount: 0.3 }}
         >
-          <a href="https://nodejsbucket2222.s3.ap-south-1.amazonaws.com/Resume.pdf" target="_blank" 
+          <a href="https://nodejsbucket2222.s3.ap-south-1.amazonaws.com/my_updatedresume.pdf" target="_blank" 
   rel="noopener noreferrer" >
           <button className="border-2 text-lg font-semibold bg-zinc-950 dark:bg-white text-slate-100 dark:text-black hover:bg-violet-500 hover:ring-1 hover:scale-125 transition-all ease-out duration-200 hover:text-black ring-purple-500 px-6 py-3 rounded-full flex items-center">
             Download CV <CiSaveDown2 className="text-xl ml-2" />
