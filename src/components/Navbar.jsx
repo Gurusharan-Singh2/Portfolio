@@ -60,7 +60,7 @@ const Navbar = () => {
             onClick={() => {
               try {
                 localStorage.removeItem("token");
-              } catch {}
+              } catch { /* intentionally empty: logout may fail */ }
               router.push("/login");
             }}
             className="hidden md:inline-flex px-3 py-2 rounded-md text-sm font-medium bg-violet-600 text-white hover:bg-violet-700 transition"
@@ -93,7 +93,7 @@ const Navbar = () => {
                     setOpen(false);
                     try {
                       localStorage.removeItem("token");
-                    } catch {}
+                    } catch { /* intentionally empty: logout may fail */ }
                     router.push("/login");
                   }}
                 >

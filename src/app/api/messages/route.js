@@ -30,9 +30,7 @@ export async function DELETE(req) {
   if (!decoded) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   let body = null;
-  try {
-    body = await req.json();
-  } catch {}
+  try { /* intentionally empty: body may be empty */ } catch {}
   const ids = Array.isArray(body?.ids) ? body.ids : [];
   if (!ids.length) return NextResponse.json({ error: "No message ids provided" }, { status: 400 });
 
