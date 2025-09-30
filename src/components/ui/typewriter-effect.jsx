@@ -1,15 +1,14 @@
 "use client";
 
 import { cn } from "@/lib/utils";
-import { motion } from "framer-motion";
+// framer-motion is not used here currently
 import { useEffect, useState, useRef } from "react";
 
 export const TypewriterEffect = ({
   words,
   className,
-  cursorClassName,
-  typingSpeed = 150, // New prop with default value
-  delayBeforeRestart = 2000, // New prop with default value
+  typingSpeed = 150,
+  delayBeforeRestart = 2000,
 }) => {
   const [currentIndex, setCurrentIndex] = useState(0);
   const timeoutRef = useRef(null);
@@ -47,22 +46,21 @@ export const TypewriterEffect = ({
   };
 
   useEffect(() => {
-    type(); // Start typing when the component mounts or words change
+    type();
 
     return () => {
-      // Cleanup all timeouts on unmount or when words change
       if (timeoutRef.current) {
         clearTimeout(timeoutRef.current);
       }
     };
-  }, [words]); // Restart effect if words change
+  }, [words, typingSpeed, delayBeforeRestart]);
 
   // Restart typing when currentIndex is reset to 0
   useEffect(() => {
     if (currentIndex === 0 && charMeta.length > 0) {
       type();
     }
-  }, [currentIndex]);
+  }, [currentIndex, charMeta.length, typingSpeed, delayBeforeRestart]);
 
   return (
     <div

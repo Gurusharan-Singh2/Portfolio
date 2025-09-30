@@ -1,19 +1,17 @@
 'use client';
 import Store from '@/store/store';
-import React from 'react';
-import { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
 
 const Switch = () => {
   const [isDark, setIsDark] = useState(false);
-  const {theme,setTheme}=Store();
+  const { setTheme } = Store();
   
   
 
   useEffect(() => {
-    const theme = localStorage.getItem('theme');
-    setIsDark(theme === 'dark');
-    // Check if 'dark' is set in localStorage
+    const storedTheme = localStorage.getItem('theme');
+    setIsDark(storedTheme === 'dark');
   }, []);
 
   const toggleTheme = () => {

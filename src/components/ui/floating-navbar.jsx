@@ -1,6 +1,6 @@
 "use client";
 import React from "react";
-import { delay, motion } from "framer-motion";
+import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { usePathname } from "next/navigation";
 import Link from "next/link";
