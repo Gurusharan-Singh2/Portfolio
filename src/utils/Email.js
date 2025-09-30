@@ -1,6 +1,6 @@
 import nodemailer from 'nodemailer';
 
-const sendEmail = async ({ email, subject, message }) => {
+const sendEmail = async ({ to, subject, message, replyTo }) => {
   try {
     const transporter = nodemailer.createTransport({
       service: process.env.NEXT_PUBLIC_SMTP_SERVICE,
@@ -13,15 +13,15 @@ const sendEmail = async ({ email, subject, message }) => {
 
     const mailOptions = {
   from: process.env.NEXT_PUBLIC_SMTP_MAIL,
-  to: process.env.NEXT_PUBLIC_SMTP_MAIL,  // You receive the message
-  replyTo: email,             // You can reply to the user
+  to: to || process.env.NEXT_PUBLIC_SMTP_MAIL,
+  replyTo: replyTo || process.env.NEXT_PUBLIC_SMTP_MAIL,
   subject: subject,
   html: message,
 };
 
 
     const info = await transporter.sendMail(mailOptions);
-    console.log("Sending email to:", email);
+    console.log("Sending email to:", to);
     console.log("Email sent:", info.response);
 
     return true;

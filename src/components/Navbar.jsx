@@ -67,7 +67,7 @@ const Navbar = () => {
               variants={listVariants}
               initial="closed"
               animate={open ? "opened" : "closed"}
-              className="absolute top-0 left-0 w-screen h-screen bg-black text-white flex flex-col items-center justify-center gap-8 text-4xl"
+              className="fixed inset-0 bg-black text-white flex flex-col items-center justify-center gap-8 text-4xl"
             >
               {navItems.map((item, i) => (
                 <motion.div variants={listItemVariants} key={i}>
