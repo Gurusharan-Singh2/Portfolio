@@ -28,7 +28,9 @@ export default function AdminChatPage() {
     try {
       const payload = JSON.parse(atob(stored.split(".")[1] || ""));
       if (payload?.isAdmin) setAdminId(payload.id);
-    } catch {}
+    } catch (decodeErr) {
+      console.warn("Failed to decode admin token", decodeErr);
+    }
   }, []);
 
   // Load users

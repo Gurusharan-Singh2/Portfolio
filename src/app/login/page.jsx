@@ -22,7 +22,9 @@ export default function LoginPage() {
         try {
           const middle = token?.split(".")[1];
           if (middle) payload = JSON.parse(atob(middle));
-        } catch {}
+        } catch (decodeErr) {
+          console.warn("Failed to decode token payload", decodeErr);
+        }
         if (payload?.isAdmin) {
           router.push("/admin");
         } else {

@@ -7,6 +7,7 @@ import { IoLogoInstagram } from "react-icons/io5";
 import { useRef } from "react";
 import QuoteRotator from "@/components/QuteGenerator";
 import Link from "next/link";
+import Image from "next/image";
 
 const container = {
   hidden: { opacity: 0 },
@@ -56,10 +57,13 @@ const Homepage = () => {
             className="inset-0 z-10 flex justify-center items-center overflow-hidden border-4 border-violet-500 bg-violet-500 shadow-lg relative w-[280px] h-[280px] sm:w-[350px] sm:h-[350px] lg:w-[450px] lg:h-[450px]"
           >
             <div className="absolute inset-0 flex justify-center z-20">
-              <img
+              <Image
                 src="/C.webp"
                 alt="Logo"
-                className="object-contain w-full h-full"
+                className="object-contain"
+                fill
+                priority
+                sizes="(max-width: 768px) 280px, (max-width: 1024px) 350px, 450px"
               />
             </div>
           </motion.div>

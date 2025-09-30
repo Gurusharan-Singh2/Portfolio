@@ -1,5 +1,6 @@
 'use client'
 import React from 'react'
+import Image from 'next/image'
 import { motion } from 'framer-motion'
 import EducationSection from './Education'
 import TechnicalSkills from './Skills'
@@ -32,9 +33,11 @@ const AboutPageComponent = () => {
   Lets innovate and build something extraordinary together!
 </motion.p>
 
-      <img 
+      <Image 
         src='/p.svg' 
         alt="Cartoon about web design" 
+        width={288}
+        height={288}
         className="w-72 h-auto rounded-lg  dark:bg-white  hover:ring-2 hover:ring-purple-500 hover:scale-125 transition-all ease-linear duration-200"
       />
       </div>
