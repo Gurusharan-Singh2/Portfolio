@@ -1,8 +1,7 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useMutation } from "@tanstack/react-query";
 import axios from "axios";
-import PageContainer from "@/components/ui/PageContainer";
 import { useRouter } from "next/navigation";
 
 export default function LoginPage() {
@@ -10,22 +9,16 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const router = useRouter();
 
-;
-
-
   const loginMutation = useMutation({
     mutationFn: (data) => axios.post("/api/auth/login", data),
     onSuccess: (res) => {
       localStorage.setItem("token", res.data.token);
       const payload = JSON.parse(atob(res.data.token.split(".")[1] || ""));
-      console.log(payload);
       if (payload?.isAdmin) {
         router.push("/admin");
-      }else{
+      } else {
         router.push("/chat");
       }
-      
-      // router.push("/chat")
     },
     onError: (err) => {
       alert(err.response?.data?.error || "Login failed. Please try again.");
@@ -40,39 +33,67 @@ export default function LoginPage() {
     loginMutation.mutate({ email, password });
   };
 
-
   return (
-    <PageContainer title="Login" maxWidth="sm">
-      <div className="flex flex-col gap-4 mt-8">
-        <h1 className="text-2xl font-semibold text-center text-zinc-800 dark:text-zinc-100">
-          Login to your account
+    
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-violet-600 via-purple-600 to-indigo-600 p-4 sm:p-6 w-screen">
+     <div className="w-full max-w-[380px] bg-white/10 backdrop-blur-xl rounded-2xl shadow-2xl p-6 sm:p-8 border border-white/20 flex flex-col gap-6 mx-auto">
+        {/* Title */}
+        <h1 className="text-2xl sm:text-3xl font-bold text-center text-white">
+          Welcome Back 👋
         </h1>
+        <p className="text-center text-violet-200 text-sm sm:text-base">
+          Login to continue chatting
+        </p>
 
+        {/* Email */}
         <input
-          className="w-full p-3 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"
+          className="w-full p-3 rounded-xl border border-white/20 bg-white/10 text-white placeholder-violet-200 focus:outline-none focus:ring-2 focus:ring-violet-400 focus:border-transparent transition-all duration-300 text-sm sm:text-base"
           type="email"
-          placeholder="Email"
+          placeholder="Email Address"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
         />
 
+        {/* Password */}
         <input
-          className="w-full p-3 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"
+          className="w-full p-3 rounded-xl border border-white/20 bg-white/10 text-white placeholder-violet-200 focus:outline-none focus:ring-2 focus:ring-violet-400 focus:border-transparent transition-all duration-300 text-sm sm:text-base"
           type="password"
           placeholder="Password"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
+          onKeyDown={(e) => e.key === "Enter" && handleLogin()}
         />
 
+        {/* Login Button */}
         <button
-          className={`w-full p-3 rounded-lg text-white font-medium transition 
-                      ${loginMutation.isLoading ? "bg-gray-400 cursor-not-allowed" : "bg-blue-500 hover:bg-blue-600"}`}
+          className={`w-full py-3 rounded-xl font-semibold text-base sm:text-lg text-white shadow-lg transform transition-all duration-300
+            ${
+              loginMutation.isLoading
+                ? "bg-gray-400 cursor-not-allowed"
+                : "bg-gradient-to-r from-violet-500 to-purple-600 hover:from-violet-600 hover:to-purple-700 active:scale-95"
+            }`}
           onClick={handleLogin}
           disabled={loginMutation.isLoading}
         >
           {loginMutation.isLoading ? "Logging in..." : "Login"}
         </button>
+
+        {/* Links */}
+        <div className="flex flex-col sm:flex-row sm:justify-between items-center gap-3 sm:gap-0 mt-4 text-sm">
+          <button
+            onClick={() => router.push("/forgot-password")}
+            className="text-violet-200 hover:text-white transition-colors"
+          >
+            Forgot Password?
+          </button>
+          <button
+            onClick={() => router.push("/signup")}
+            className="text-violet-200 hover:text-white transition-colors"
+          >
+            Create an Account
+          </button>
+        </div>
       </div>
-    </PageContainer>
+    </div>
   );
 }
