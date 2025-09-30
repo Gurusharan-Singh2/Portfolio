@@ -11,7 +11,6 @@ import { FloatingNav } from "./ui/floating-navbar";
 const Navbar = () => {
   const [open, setOpen] = useState(false);
   const router = useRouter();
-  const { theme } = Store();
   const [isAdmin, setIsAdmin] = useState(false);
 
   useEffect(() => {

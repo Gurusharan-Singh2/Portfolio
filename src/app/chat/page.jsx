@@ -23,7 +23,6 @@ export default function ChatPage() {
 
   const SOCKET_URL = process.env.NEXT_PUBLIC_SOCKET_URL;
   const ADMIN_USER_ID = process.env.NEXT_PUBLIC_ADMIN_ID;
-  const activeRecipientIdRef = useRef(ADMIN_USER_ID);
 
   // Load token
   useEffect(() => {

@@ -53,14 +53,14 @@ export const TypewriterEffect = ({
         clearTimeout(timeoutRef.current);
       }
     };
-  }, [words, typingSpeed, delayBeforeRestart]);
+  }, [words, typingSpeed, delayBeforeRestart, type]);
 
   // Restart typing when currentIndex is reset to 0
   useEffect(() => {
     if (currentIndex === 0 && charMeta.length > 0) {
       type();
     }
-  }, [currentIndex, charMeta.length, typingSpeed, delayBeforeRestart]);
+  }, [currentIndex, charMeta.length, typingSpeed, delayBeforeRestart, type]);
 
   return (
     <div
