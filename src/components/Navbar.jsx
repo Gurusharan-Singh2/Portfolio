@@ -78,7 +78,8 @@ const Navbar = () => {
               variants={listVariants}
               initial="closed"
               animate={open ? "opened" : "closed"}
-              className="fixed inset-0 bg-black text-white flex flex-col items-center justify-center gap-8 text-4xl"
+              className="fixed inset-0 bg-black text-white flex flex-col items-center justify-center gap-8 text-4xl z-50"
+              style={{paddingBottom: '80px'}}
             >
               {navItems.map((item, i) => (
                 <motion.div variants={listItemVariants} key={i}>
@@ -87,19 +88,25 @@ const Navbar = () => {
                   </Link>
                 </motion.div>
               ))}
-              <motion.div variants={listItemVariants}>
-                <button
-                  onClick={() => {
-                    setOpen(false);
-                    try {
-                      localStorage.removeItem("token");
-                    } catch { /* intentionally empty: logout may fail */ }
-                    router.push("/login");
-                  }}
-                >
-                  Logout
-                </button>
-              </motion.div>
+              <div className="absolute bottom-10 left-0 w-full flex justify-center">
+                <motion.div variants={listItemVariants}>
+                  <button
+                    onClick={() => {
+                      setOpen(false);
+                      try {
+                        localStorage.removeItem("token");
+                      } catch { /* intentionally empty: logout may fail */ }
+                      router.push("/login");
+                    }}
+                    className="px-8 py-3 rounded-md text-lg font-bold bg-violet-600 text-white hover:bg-violet-700 transition flex items-center gap-2 shadow-lg"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-7 h-7 mr-2">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6A2.25 2.25 0 005.25 5.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15m3-3l-3-3m3 3H9" />
+                    </svg>
+                    Logout
+                  </button>
+                </motion.div>
+              </div>
             </motion.div>
           </div>
         </div>
