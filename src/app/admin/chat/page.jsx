@@ -3,6 +3,8 @@ import { useEffect, useRef, useState } from "react";
 import { io } from "socket.io-client";
 import axios from "axios";
 import { Send } from "lucide-react";
+import { useMediaQuery } from 'react-responsive';
+import { X } from 'lucide-react';
 
 export default function AdminChatPage() {
   const [messages, setMessages] = useState([]);
@@ -15,6 +17,8 @@ export default function AdminChatPage() {
   const [isHistoryLoading, setIsHistoryLoading] = useState(false);
   const [selectMode, setSelectMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState(new Set());
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
 
   const socketRef = useRef(null);
   const messagesEndRef = useRef(null);
@@ -147,7 +151,7 @@ export default function AdminChatPage() {
 
   return (
     <div className="flex h-[calc(100vh-2rem)] gap-4 p-4 bg-gradient-to-b from-violet-200 via-purple-200 to-indigo-200">
-      {/* Users */}
+      {/* Users Sidebar for Desktop */}
       <aside className="hidden md:flex w-64 flex-col bg-violet-50 rounded-2xl shadow-lg overflow-y-auto scrollbar-thin scrollbar-thumb-purple-500 scrollbar-track-purple-100">
         <div className="p-4 border-b border-purple-200 font-semibold text-purple-700 text-lg">
           Users
@@ -157,9 +161,7 @@ export default function AdminChatPage() {
             <button
               key={u._id}
               onClick={() => setActiveUser(u)}
-              className={`flex items-center gap-3 p-3 text-left hover:bg-purple-100 transition rounded-lg ${
-                activeUser?._id === u._id ? "bg-purple-200 font-semibold" : ""
-              }`}
+              className={`flex items-center gap-3 p-3 text-left hover:bg-purple-100 transition rounded-lg ${activeUser?._id === u._id ? "bg-purple-200 font-semibold" : ""}`}
             >
               <div className="h-8 w-8 rounded-full bg-purple-400 text-white flex items-center justify-center text-xs">
                 {u.email[0].toUpperCase()}
@@ -169,13 +171,42 @@ export default function AdminChatPage() {
           ))}
         </div>
       </aside>
-
+      {/* User Drawer for Mobile */}
+      {drawerOpen && (
+        <div className="fixed inset-0 z-50 bg-black/60 flex justify-end md:hidden">
+          <div className="w-4/5 max-w-xs bg-white h-full shadow-2xl flex flex-col">
+            <div className="flex items-center justify-between p-4 border-b">
+              <span className="font-semibold text-lg text-purple-700">Users</span>
+              <button onClick={() => setDrawerOpen(false)}><X className="w-6 h-6 text-purple-700" /></button>
+            </div>
+            <div className="flex-1 overflow-y-auto divide-y">
+              {users.map((u) => (
+                <button
+                  key={u._id}
+                  onClick={() => { setActiveUser(u); setDrawerOpen(false); }}
+                  className={`flex items-center gap-3 p-3 text-left w-full hover:bg-purple-100 transition rounded-lg ${activeUser?._id === u._id ? "bg-purple-200 font-semibold" : ""}`}
+                >
+                  <div className="h-8 w-8 rounded-full bg-purple-400 text-white flex items-center justify-center text-xs">
+                    {u.email[0].toUpperCase()}
+                  </div>
+                  <span className="truncate">{u.email}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="flex-1" onClick={() => setDrawerOpen(false)} />
+        </div>
+      )}
       {/* Chat */}
-      <div className="flex-1 flex flex-col bg-gradient-to-b from-violet-300 to-purple-300 rounded-2xl shadow-lg overflow-hidden">
+      <div className="flex-1 flex flex-col bg-gradient-to-b from-violet-300 to-purple-300 rounded-2xl shadow-lg overflow-hidden relative">
         {/* Header */}
         <div className="px-4 py-3 border-b border-purple-300 font-semibold text-purple-800 flex items-center justify-between">
           <span>{activeUser ? `Chat with ${activeUser.email}` : "Select a user"}</span>
           <div className="flex items-center gap-2">
+            {/* Mobile: open user drawer */}
+            <button className="md:hidden px-3 py-1 rounded-md bg-purple-200 hover:bg-purple-300" onClick={() => setDrawerOpen(true)}>
+              Users
+            </button>
             <button
               onClick={() => {
                 setSelectMode((s) => !s);
@@ -196,7 +227,6 @@ export default function AdminChatPage() {
             )}
           </div>
         </div>
-
         {/* Messages */}
         <div className="flex-1 p-4 overflow-y-auto space-y-3 scrollbar-thin scrollbar-thumb-purple-400 scrollbar-track-purple-100 hide-scrollbar">
           {isHistoryLoading && (
@@ -207,7 +237,6 @@ export default function AdminChatPage() {
               </div>
             </div>
           )}
-
           {messages.map((m) => {
             const isOwn = String(m.senderId) === String(adminId);
             return (
@@ -226,11 +255,7 @@ export default function AdminChatPage() {
                   </div>
                 )}
                 <div
-                  className={`px-4 py-2 rounded-2xl max-w-[70%] text-sm shadow ${
-                    isOwn
-                      ? "bg-gradient-to-r from-violet-500 to-purple-600 text-white rounded-br-none"
-                      : "bg-purple-100 text-purple-900 rounded-bl-none border border-purple-300"
-                  }`}
+                  className={`px-4 py-2 rounded-2xl max-w-[70%] text-sm shadow ${isOwn ? "bg-gradient-to-r from-violet-500 to-purple-600 text-white rounded-br-none" : "bg-purple-100 text-purple-900 rounded-bl-none border border-purple-300"}`}
                 >
                   <div>{m.text}</div>
                   <div className="mt-1 text-[10px] opacity-70 text-right">
@@ -257,9 +282,8 @@ export default function AdminChatPage() {
           )}
           <div ref={messagesEndRef} />
         </div>
-
         {/* Input */}
-        <div className="border-t border-purple-300 p-3 flex items-center gap-3 bg-purple-50">
+        <div className="border-t border-purple-300 p-3 flex items-center gap-3 bg-purple-50 sticky bottom-0 left-0 w-full z-10">
           <input
             className="flex-1 p-3 rounded-full border border-purple-300 focus:outline-none focus:ring-2 focus:ring-purple-500 text-purple-800 placeholder-purple-400"
             placeholder="Type your message..."
