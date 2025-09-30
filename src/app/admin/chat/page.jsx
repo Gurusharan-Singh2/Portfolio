@@ -42,7 +42,7 @@ export default function AdminChatPage() {
         setUsers(res.data);
         if (res.data.length && !activeUser) setActiveUser(res.data[0]);
       });
-  }, [token]);
+  }, [token, activeUser]);
 
   useEffect(() => {
     if (!token || !activeUser?._id) return;
