@@ -12,6 +12,8 @@ export default function ChatPage() {
   const [token, setToken] = useState(null);
   const [userId, setUserId] = useState(null);
   const [isTyping, setIsTyping] = useState(false);
+  const [selectMode, setSelectMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState(new Set());
 
   const router = useRouter();
   const socketRef = useRef(null);
@@ -47,7 +49,7 @@ export default function ChatPage() {
   }, [token, router]);
 
   // Fetch history
-  const { data: initialMessages } = useQuery({
+  const { data: initialMessages, isLoading: isHistoryLoading } = useQuery({
     queryKey: ["messages", ADMIN_USER_ID],
     queryFn: async () => {
       const res = await axios.get(`/api/messages?userId=${ADMIN_USER_ID}`, {
@@ -66,14 +68,17 @@ export default function ChatPage() {
     }
 
     const handlePrivateMessage = (msg) => {
-      if (
-        msg.senderId === activeRecipientIdRef.current ||
-        msg.recipientId === activeRecipientIdRef.current
-      ) {
+      const senderIdStr = msg?.senderId ? String(msg.senderId) : null;
+      const recipientIdStr = msg?.recipientId ? String(msg.recipientId) : null;
+      const adminIdStr = ADMIN_USER_ID ? String(ADMIN_USER_ID) : null;
+
+      if (senderIdStr === adminIdStr || recipientIdStr === adminIdStr) {
         setMessages((prev) => {
           // Try to find a matching optimistic message to avoid duplicates
           const idx = prev.findIndex((m) => {
-            const sameParties = m.senderId === msg.senderId && m.recipientId === msg.recipientId;
+            const mSender = m?.senderId ? String(m.senderId) : null;
+            const mRecipient = m?.recipientId ? String(m.recipientId) : null;
+            const sameParties = mSender === senderIdStr && mRecipient === recipientIdStr;
             const sameText = m.text === msg.text;
             // Consider messages within a short window as the same (optimistic vs server)
             const mt = new Date(m.timestamp || Date.now()).getTime();
@@ -149,6 +154,31 @@ export default function ChatPage() {
     setNewMsg("");
   };
 
+  const toggleSelect = (id) => {
+    setSelectedIds((prev) => {
+      const copy = new Set(prev);
+      if (copy.has(id)) copy.delete(id); else copy.add(id);
+      return copy;
+    });
+  };
+
+  const deleteSelected = async () => {
+    if (!selectedIds.size) return;
+    try {
+      const ids = Array.from(selectedIds);
+      await axios.delete("/api/messages", {
+        headers: { Authorization: `Bearer ${token}` },
+        data: { ids },
+      });
+      setMessages((prev) => prev.filter((m) => !selectedIds.has(String(m._id))));
+      setSelectedIds(new Set());
+      setSelectMode(false);
+    } catch (e) {
+      console.error("Delete failed", e);
+      alert("Failed to delete messages");
+    }
+  };
+
   const handleChange = (e) => {
     setNewMsg(e.target.value);
     const now = Date.now();
@@ -186,15 +216,42 @@ export default function ChatPage() {
       {/* Main Chat Area */}
       <main className="flex-1 flex flex-col">
         {/* Header */}
-        <div className="px-4 py-4 border-b border-white/20 bg-white/5 backdrop-blur-md shrink-0">
-          <h2 className="text-lg font-semibold text-white">
-            Chat Support
-          </h2>
+        <div className="px-4 py-4 border-b border-white/20 bg-white/5 backdrop-blur-md shrink-0 flex items-center justify-between">
+          <h2 className="text-lg font-semibold text-white">Chat Support</h2>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => {
+                setSelectMode((s) => !s);
+                setSelectedIds(new Set());
+              }}
+              className="px-3 py-1 rounded-md text-sm bg-white/20 text-white hover:bg-white/30 border border-white/30"
+            >
+              {selectMode ? "Cancel" : "Select"}
+            </button>
+            {selectMode && (
+              <button
+                onClick={deleteSelected}
+                disabled={!selectedIds.size}
+                className={`px-3 py-1 rounded-md text-sm ${selectedIds.size ? "bg-red-600 hover:bg-red-700 text-white" : "bg-red-300 text-white/70 cursor-not-allowed"}`}
+              >
+                Delete ({selectedIds.size})
+              </button>
+            )}
+          </div>
         </div>
 
    {/* Messages */}
 <div className="flex-1 px-4 sm:px-6 py-6 space-y-4 bg-transparent 
                 overflow-y-auto hide-scrollbar">
+  {isHistoryLoading && (
+    <div className="w-full flex justify-center py-6">
+      <div className="flex items-center gap-2 text-white/80">
+        <span className="h-5 w-5 rounded-full border-2 border-white/30 border-t-white animate-spin"></span>
+        <span>Loading messages...</span>
+      </div>
+    </div>
+  )}
+
   {messages.map((m) => {
     const isOwn = userId && m.senderId === userId;
     return (
@@ -202,6 +259,14 @@ export default function ChatPage() {
         key={m._id}
         className={`flex items-end gap-2 ${isOwn ? "justify-end" : "justify-start"}`}
       >
+        {selectMode && (
+          <input
+            type="checkbox"
+            className="mt-auto mb-1"
+            checked={selectedIds.has(String(m._id))}
+            onChange={() => toggleSelect(String(m._id))}
+          />
+        )}
         {!isOwn && (
           <div className="h-8 w-8 rounded-full bg-white/20 text-white flex items-center justify-center text-xs border border-white/10">GS</div>
         )}

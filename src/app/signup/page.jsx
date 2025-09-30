@@ -21,6 +21,8 @@ export default function SignupPage() {
     },
   });
 
+  const isPending = Boolean(signupMutation.isPending || signupMutation.isLoading);
+
   const handleSignup = () => {
     if (!email || !password) {
       alert("Please enter both email and password");
@@ -67,14 +69,14 @@ export default function SignupPage() {
 
         <button
           className={`${"w-full py-3 rounded-xl font-semibold text-base sm:text-lg text-white shadow-lg transform transition-all duration-300"} ${
-            signupMutation.isLoading
+            isPending
               ? "bg-gray-400 cursor-not-allowed"
               : "bg-gradient-to-r from-violet-500 to-purple-600 hover:from-violet-600 hover:to-purple-700 active:scale-95"
           }`}
           onClick={handleSignup}
-          disabled={signupMutation.isLoading}
+          disabled={isPending}
         >
-          {signupMutation.isLoading ? "Signing up..." : "Signup"}
+          {isPending ? "Signing up..." : "Signup"}
         </button>
 
         <div className="flex flex-col sm:flex-row sm:justify-between items-center gap-3 sm:gap-0 mt-4 text-sm">

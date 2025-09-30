@@ -2,6 +2,7 @@
 import { motion } from "framer-motion";
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import Switch from "@/utils/Switch";
 import Store from "@/store/store";
 import { FaHome, FaUserAlt, FaEnvelope, FaBriefcase, FaUserShield } from "react-icons/fa";
@@ -9,6 +10,7 @@ import { FloatingNav } from "./ui/floating-navbar";
 
 const Navbar = () => {
   const [open, setOpen] = useState(false);
+  const router = useRouter();
   const { theme } = Store();
   const [isAdmin, setIsAdmin] = useState(false);
 
@@ -56,6 +58,17 @@ const Navbar = () => {
         <div className="flex lg:w-full gap-6 lg:gap-3">
           <FloatingNav navItems={navItems} />
           <Switch />
+          <button
+            onClick={() => {
+              try {
+                localStorage.removeItem("token");
+              } catch {}
+              router.push("/login");
+            }}
+            className="hidden md:inline-flex px-3 py-2 rounded-md text-sm font-medium bg-violet-600 text-white hover:bg-violet-700 transition"
+          >
+            Logout
+          </button>
           <div className="block md:hidden relative">
             <button className="w-10 h-8 flex flex-col justify-between z-50 relative transition-all ease-linear duration-300" onClick={() => setOpen(!open)}>
               <motion.div variants={topVariants} animate={open ? "opened" : "closed"} className="w-10 h-1 bg-black dark:bg-white rounded origin-left"></motion.div>
@@ -76,6 +89,19 @@ const Navbar = () => {
                   </Link>
                 </motion.div>
               ))}
+              <motion.div variants={listItemVariants}>
+                <button
+                  onClick={() => {
+                    setOpen(false);
+                    try {
+                      localStorage.removeItem("token");
+                    } catch {}
+                    router.push("/login");
+                  }}
+                >
+                  Logout
+                </button>
+              </motion.div>
             </motion.div>
           </div>
         </div>

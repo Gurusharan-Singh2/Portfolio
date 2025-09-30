@@ -41,6 +41,8 @@ export default function LoginPage() {
     },
   });
 
+  const isPending = Boolean(loginMutation.isPending || loginMutation.isLoading);
+
   const handleLogin = () => {
     if (!email || !password) {
       alert("Please enter both email and password");
@@ -93,14 +95,14 @@ export default function LoginPage() {
         <button
           className={`w-full py-3 rounded-xl font-semibold text-base sm:text-lg text-white shadow-lg transform transition-all duration-300
             ${
-              loginMutation.isLoading
+              isPending
                 ? "bg-gray-400 cursor-not-allowed"
                 : "bg-gradient-to-r from-violet-500 to-purple-600 hover:from-violet-600 hover:to-purple-700 active:scale-95"
             }`}
           onClick={handleLogin}
-          disabled={loginMutation.isLoading}
+          disabled={isPending}
         >
-          {loginMutation.isLoading ? "Logging in..." : "Login"}
+          {isPending ? "Logging in..." : "Login"}
         </button>
 
         {/* Links */}

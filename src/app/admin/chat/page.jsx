@@ -12,6 +12,9 @@ export default function AdminChatPage() {
   const [users, setUsers] = useState([]);
   const [activeUser, setActiveUser] = useState(null);
   const [isTyping, setIsTyping] = useState(false);
+  const [isHistoryLoading, setIsHistoryLoading] = useState(false);
+  const [selectMode, setSelectMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState(new Set());
 
   const socketRef = useRef(null);
   const messagesEndRef = useRef(null);
@@ -43,9 +46,11 @@ export default function AdminChatPage() {
 
   useEffect(() => {
     if (!token || !activeUser?._id) return;
+    setIsHistoryLoading(true);
     axios
       .get(`/api/messages?userId=${activeUser._id}`, { headers: { Authorization: `Bearer ${token}` } })
-      .then((res) => setMessages(res.data));
+      .then((res) => setMessages(res.data))
+      .finally(() => setIsHistoryLoading(false));
   }, [token, activeUser]);
 
   useEffect(() => {
@@ -53,11 +58,17 @@ export default function AdminChatPage() {
     if (!socketRef.current) socketRef.current = io(SOCKET_URL, { query: { token } });
 
     const onMsg = (m) => {
-      if (m.senderId === activeUser?._id || m.recipientId === activeUser?._id) {
+      const senderIdStr = m?.senderId ? String(m.senderId) : null;
+      const recipientIdStr = m?.recipientId ? String(m.recipientId) : null;
+      const activeIdStr = activeUser?._id ? String(activeUser._id) : null;
+
+      if (senderIdStr === activeIdStr || recipientIdStr === activeIdStr) {
         setMessages((prev) => {
           // Attempt to find a matching optimistic message and replace it to avoid duplicates
           const matchIndex = prev.findIndex((existing) => {
-            const sameParticipants = existing.senderId === m.senderId && existing.recipientId === m.recipientId;
+            const eSender = existing?.senderId ? String(existing.senderId) : null;
+            const eRecipient = existing?.recipientId ? String(existing.recipientId) : null;
+            const sameParticipants = eSender === senderIdStr && eRecipient === recipientIdStr;
             const sameText = existing.text === m.text;
             const existingTime = new Date(existing.timestamp || Date.now()).getTime();
             const incomingTime = new Date(m.timestamp || Date.now()).getTime();
@@ -107,7 +118,31 @@ export default function AdminChatPage() {
     setNewMsg("");
   };
 
-  console.log(users);
+  const toggleSelect = (id) => {
+    setSelectedIds((prev) => {
+      const copy = new Set(prev);
+      if (copy.has(id)) copy.delete(id); else copy.add(id);
+      return copy;
+    });
+  };
+
+  const deleteSelected = async () => {
+    if (!selectedIds.size) return;
+    try {
+      const ids = Array.from(selectedIds);
+      await axios.delete("/api/messages", {
+        headers: { Authorization: `Bearer ${token}` },
+        data: { ids },
+      });
+      setMessages((prev) => prev.filter((m) => !selectedIds.has(String(m._id))));
+      setSelectedIds(new Set());
+      setSelectMode(false);
+    } catch (e) {
+      console.error("Delete failed", e);
+      alert("Failed to delete messages");
+    }
+  };
+
   
 
   return (
@@ -138,16 +173,53 @@ export default function AdminChatPage() {
       {/* Chat */}
       <div className="flex-1 flex flex-col bg-gradient-to-b from-violet-300 to-purple-300 rounded-2xl shadow-lg overflow-hidden">
         {/* Header */}
-        <div className="px-4 py-3 border-b border-purple-300 font-semibold text-purple-800">
-          {activeUser ? `Chat with ${activeUser.email}` : "Select a user"}
+        <div className="px-4 py-3 border-b border-purple-300 font-semibold text-purple-800 flex items-center justify-between">
+          <span>{activeUser ? `Chat with ${activeUser.email}` : "Select a user"}</span>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => {
+                setSelectMode((s) => !s);
+                setSelectedIds(new Set());
+              }}
+              className="px-3 py-1 rounded-md text-sm bg-purple-200 hover:bg-purple-300"
+            >
+              {selectMode ? "Cancel" : "Select"}
+            </button>
+            {selectMode && (
+              <button
+                onClick={deleteSelected}
+                disabled={!selectedIds.size}
+                className={`px-3 py-1 rounded-md text-sm text-white ${selectedIds.size ? "bg-red-600 hover:bg-red-700" : "bg-red-300 cursor-not-allowed"}`}
+              >
+                Delete ({selectedIds.size})
+              </button>
+            )}
+          </div>
         </div>
 
         {/* Messages */}
         <div className="flex-1 p-4 overflow-y-auto space-y-3 scrollbar-thin scrollbar-thumb-purple-400 scrollbar-track-purple-100 hide-scrollbar">
+          {isHistoryLoading && (
+            <div className="w-full flex justify-center py-6">
+              <div className="flex items-center gap-2 text-purple-700">
+                <span className="h-5 w-5 rounded-full border-2 border-purple-300 border-t-purple-700 animate-spin"></span>
+                <span>Loading messages...</span>
+              </div>
+            </div>
+          )}
+
           {messages.map((m) => {
-            const isOwn = m.senderId === adminId;
+            const isOwn = String(m.senderId) === String(adminId);
             return (
               <div key={m._id} className={`flex items-end gap-2 ${isOwn ? "justify-end" : "justify-start"}`}>
+                {selectMode && (
+                  <input
+                    type="checkbox"
+                    className="mt-auto mb-1"
+                    checked={selectedIds.has(String(m._id))}
+                    onChange={() => toggleSelect(String(m._id))}
+                  />
+                )}
                 {!isOwn && (
                   <div className="h-8 w-8 rounded-full bg-purple-300 text-purple-700 flex items-center justify-center text-xs">
                     U
