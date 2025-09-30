@@ -2,7 +2,7 @@
 
 import { cn } from "@/lib/utils";
 // framer-motion is not used here currently
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 
 export const TypewriterEffect = ({
   words,
@@ -33,7 +33,7 @@ export const TypewriterEffect = ({
   });
 
   // Type function that handles the typing effect
-  const type = () => {
+  const type = useCallback(() => {
     if (currentIndexRef.current < charMeta.length) {
       setCurrentIndex((prev) => prev + 1);
       timeoutRef.current = setTimeout(type, typingSpeed);
@@ -43,7 +43,7 @@ export const TypewriterEffect = ({
         setCurrentIndex(0); // Reset the typing
       }, delayBeforeRestart);
     }
-  };
+  }, [charMeta.length, typingSpeed, delayBeforeRestart]);
 
   useEffect(() => {
     type();
