@@ -66,18 +66,15 @@
     @apply border-border;
   }
   body {
-    @apply bg-background text-foreground overflow-x-hidden;
+    @apply bg-background text-foreground overflow-x-hidden overflow-y-auto;
   }
 }
 
-/* Hide Scrollbars (keep scrolling enabled) */
-html, body {
-  -ms-overflow-style: none; /* IE and old Edge */
-  scrollbar-width: none;    /* Firefox */
-}
 
-html::-webkit-scrollbar,
-body::-webkit-scrollbar {
-  width: 0px;               /* Safari and Chrome */
-  height: 0px;
+.hide-scrollbar {
+  -ms-overflow-style: none;  /* IE and Edge */
+  scrollbar-width: none;     /* Firefox */
+}
+.hide-scrollbar::-webkit-scrollbar {
+  display: none;             /* Chrome, Safari, Opera */
 }

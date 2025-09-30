@@ -1,7 +1,6 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 import { io } from "socket.io-client";
-import { useQuery } from "@tanstack/react-query";
 import axios from "axios";
 import { Send } from "lucide-react";
 
@@ -20,7 +19,6 @@ export default function AdminChatPage() {
 
   const SOCKET_URL = process.env.NEXT_PUBLIC_SOCKET_URL;
 
-  // Load token and ensure admin
   useEffect(() => {
     const stored = localStorage.getItem("token");
     if (!stored) return;
@@ -33,7 +31,6 @@ export default function AdminChatPage() {
     }
   }, []);
 
-  // Load users
   useEffect(() => {
     if (!token) return;
     axios
@@ -44,7 +41,6 @@ export default function AdminChatPage() {
       });
   }, [token]);
 
-  // Fetch messages for active user
   useEffect(() => {
     if (!token || !activeUser?._id) return;
     axios
@@ -52,14 +48,31 @@ export default function AdminChatPage() {
       .then((res) => setMessages(res.data));
   }, [token, activeUser]);
 
-  // Socket
   useEffect(() => {
     if (!token) return;
     if (!socketRef.current) socketRef.current = io(SOCKET_URL, { query: { token } });
 
     const onMsg = (m) => {
       if (m.senderId === activeUser?._id || m.recipientId === activeUser?._id) {
-        setMessages((prev) => [...prev, m]);
+        setMessages((prev) => {
+          // Attempt to find a matching optimistic message and replace it to avoid duplicates
+          const matchIndex = prev.findIndex((existing) => {
+            const sameParticipants = existing.senderId === m.senderId && existing.recipientId === m.recipientId;
+            const sameText = existing.text === m.text;
+            const existingTime = new Date(existing.timestamp || Date.now()).getTime();
+            const incomingTime = new Date(m.timestamp || Date.now()).getTime();
+            const closeInTimeWindow = Math.abs(existingTime - incomingTime) < 5000;
+            return sameParticipants && sameText && closeInTimeWindow;
+          });
+
+          if (matchIndex !== -1) {
+            const copy = [...prev];
+            copy[matchIndex] = { ...copy[matchIndex], ...m };
+            return copy;
+          }
+
+          return [...prev, m];
+        });
       }
     };
     const onTyping = ({ senderId }) => {
@@ -75,6 +88,8 @@ export default function AdminChatPage() {
       if (!socketRef.current) return;
       socketRef.current.off("privateMessage", onMsg);
       socketRef.current.off("typing", onTyping);
+      socketRef.current.disconnect();
+      socketRef.current = null;
     };
   }, [token, SOCKET_URL, activeUser]);
 
@@ -92,75 +107,100 @@ export default function AdminChatPage() {
     setNewMsg("");
   };
 
+  console.log(users);
+  
+
   return (
-    <div className="min-h-[70vh] flex gap-4">
+    <div className="flex h-[calc(100vh-2rem)] gap-4 p-4 bg-gradient-to-b from-violet-200 via-purple-200 to-indigo-200">
       {/* Users */}
-      <aside className="hidden md:flex w-64 flex-col border border-white/20 bg-white/10 backdrop-blur-xl rounded-2xl p-4 text-white">
-        <h3 className="font-semibold mb-3">Users</h3>
-        <div className="space-y-2 overflow-y-auto">
+      <aside className="hidden md:flex w-64 flex-col bg-violet-50 rounded-2xl shadow-lg overflow-y-auto scrollbar-thin scrollbar-thumb-purple-500 scrollbar-track-purple-100">
+        <div className="p-4 border-b border-purple-200 font-semibold text-purple-700 text-lg">
+          Users
+        </div>
+        <div className="flex flex-col divide-y divide-purple-200">
           {users.map((u) => (
             <button
               key={u._id}
               onClick={() => setActiveUser(u)}
-              className={`w-full text-left px-3 py-2 rounded-lg border border-white/10 ${
-                activeUser?._id === u._id ? "bg-white/20" : "hover:bg-white/10"
+              className={`flex items-center gap-3 p-3 text-left hover:bg-purple-100 transition rounded-lg ${
+                activeUser?._id === u._id ? "bg-purple-200 font-semibold" : ""
               }`}
             >
-              {u.email}
+              <div className="h-8 w-8 rounded-full bg-purple-400 text-white flex items-center justify-center text-xs">
+                {u.email[0].toUpperCase()}
+              </div>
+              <span className="truncate">{u.email}</span>
             </button>
           ))}
         </div>
       </aside>
 
       {/* Chat */}
-      <div className="flex-1 bg-white/10 backdrop-blur-xl rounded-2xl border border-white/20 overflow-hidden flex flex-col">
-        <div className="px-4 py-4 border-b border-white/20 bg-white/5 text-white">
+      <div className="flex-1 flex flex-col bg-gradient-to-b from-violet-300 to-purple-300 rounded-2xl shadow-lg overflow-hidden">
+        {/* Header */}
+        <div className="px-4 py-3 border-b border-purple-300 font-semibold text-purple-800">
           {activeUser ? `Chat with ${activeUser.email}` : "Select a user"}
         </div>
-        <div className="flex-1 overflow-y-auto px-4 sm:px-6 py-6 space-y-4">
+
+        {/* Messages */}
+        <div className="flex-1 p-4 overflow-y-auto space-y-3 scrollbar-thin scrollbar-thumb-purple-400 scrollbar-track-purple-100 hide-scrollbar">
           {messages.map((m) => {
             const isOwn = m.senderId === adminId;
             return (
               <div key={m._id} className={`flex items-end gap-2 ${isOwn ? "justify-end" : "justify-start"}`}>
-                {!isOwn && <div className="h-8 w-8 rounded-full bg-white/20 text-white flex items-center justify-center text-xs border border-white/10">U</div>}
-                <div className={`px-4 py-2 rounded-2xl max-w-[75%] text-sm shadow ${isOwn ? "bg-gradient-to-r from-violet-500 to-purple-600 text-white rounded-br-none" : "bg-white/20 backdrop-blur-md text-white rounded-bl-none border border-white/10"}`}>
+                {!isOwn && (
+                  <div className="h-8 w-8 rounded-full bg-purple-300 text-purple-700 flex items-center justify-center text-xs">
+                    U
+                  </div>
+                )}
+                <div
+                  className={`px-4 py-2 rounded-2xl max-w-[70%] text-sm shadow ${
+                    isOwn
+                      ? "bg-gradient-to-r from-violet-500 to-purple-600 text-white rounded-br-none"
+                      : "bg-purple-100 text-purple-900 rounded-bl-none border border-purple-300"
+                  }`}
+                >
                   <div>{m.text}</div>
-                  <div className={`mt-1 text-[10px] opacity-80 ${isOwn ? "text-white" : "text-violet-100"}`}>
+                  <div className="mt-1 text-[10px] opacity-70 text-right">
                     {new Date(m.timestamp || Date.now()).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
                   </div>
                 </div>
-                {isOwn && <div className="h-8 w-8 rounded-full bg-violet-600 text-white flex items-center justify-center text-xs shadow">You</div>}
+                {isOwn && (
+                  <div className="h-8 w-8 rounded-full bg-violet-600 text-white flex items-center justify-center text-xs shadow">
+                    You
+                  </div>
+                )}
               </div>
             );
           })}
           {isTyping && (
-            <div className="flex items-center gap-2 text-xs text-violet-100 px-2">
-              <div className="h-8 w-8 rounded-full bg-white/20 text-white flex items-center justify-center text-xs border border-white/10">U</div>
-              <div className="px-4 py-2 rounded-2xl bg-white/20 border border-white/10">
-                <span className="inline-flex gap-1">
-                  <span className="w-1.5 h-1.5 bg-white/80 rounded-full animate-bounce" style={{animationDelay:"0ms"}}></span>
-                  <span className="w-1.5 h-1.5 bg-white/60 rounded-full animate-bounce" style={{animationDelay:"100ms"}}></span>
-                  <span className="w-1.5 h-1.5 bg-white/40 rounded-full animate-bounce" style={{animationDelay:"200ms"}}></span>
-                </span>
+            <div className="flex items-center gap-2 text-sm text-purple-700">
+              <div className="h-8 w-8 rounded-full bg-purple-300 flex items-center justify-center text-xs">U</div>
+              <div className="px-4 py-2 rounded-2xl bg-purple-100 border border-purple-300 flex items-center gap-1">
+                <span className="w-2 h-2 bg-purple-500 rounded-full animate-bounce" style={{ animationDelay: "0ms" }}></span>
+                <span className="w-2 h-2 bg-purple-500 rounded-full animate-bounce" style={{ animationDelay: "100ms" }}></span>
+                <span className="w-2 h-2 bg-purple-500 rounded-full animate-bounce" style={{ animationDelay: "200ms" }}></span>
               </div>
             </div>
           )}
           <div ref={messagesEndRef} />
         </div>
-        <div className="border-t border-white/20 bg-white/5 backdrop-blur-md p-3 sm:p-4 flex items-center gap-3">
+
+        {/* Input */}
+        <div className="border-t border-purple-300 p-3 flex items-center gap-3 bg-purple-50">
           <input
-            className="flex-1 p-3 text-sm rounded-full border border-white/20 bg-white/10 text-white placeholder-violet-200 focus:outline-none focus:ring-2 focus:ring-violet-400 focus:border-transparent"
+            className="flex-1 p-3 rounded-full border border-purple-300 focus:outline-none focus:ring-2 focus:ring-purple-500 text-purple-800 placeholder-purple-400"
+            placeholder="Type your message..."
             value={newMsg}
             onChange={(e) => {
               setNewMsg(e.target.value);
               if (activeUser?._id) socketRef.current?.emit("typing", { recipientId: activeUser._id });
             }}
-            placeholder="Type your message..."
             onKeyDown={(e) => e.key === "Enter" && sendMessage()}
           />
           <button
             onClick={sendMessage}
-            className="p-3 bg-gradient-to-r from-violet-500 to-purple-600 text-white rounded-full hover:from-violet-600 hover:to-purple-700 transition flex items-center justify-center shadow"
+            className="p-3 bg-gradient-to-r from-violet-500 to-purple-600 hover:from-violet-600 hover:to-purple-700 text-white rounded-full transition shadow flex items-center justify-center"
           >
             <Send size={18} />
           </button>
@@ -169,5 +209,3 @@ export default function AdminChatPage() {
     </div>
   );
 }
-
-

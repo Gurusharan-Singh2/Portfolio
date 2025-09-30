@@ -30,8 +30,8 @@ export default function SignupPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-violet-600 via-purple-600 to-indigo-600 p-4 sm:p-6 w-full">
-      <div className="w-full max-w-[380px] bg-white/10 backdrop-blur-xl rounded-2xl shadow-2xl p-6 sm:p-8 border border-white/20 flex flex-col gap-6 mx-auto">
+    <div className="min-h-screen flex items-center justify-center -mt-20 sm:mt-0  p-4 sm:p-4 w-full">
+      <div className="w-full bg-gradient-to-br from-violet-600 via-purple-600 to-indigo-600 max-w-[380px] bg-white/10 backdrop-blur-xl rounded-2xl shadow-2xl p-6 sm:p-8 border border-white/20 flex flex-col gap-6 mx-auto">
         <h1 className="text-2xl sm:text-3xl font-bold text-center text-white">
           Create Account ✨
         </h1>

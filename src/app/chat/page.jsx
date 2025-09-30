@@ -70,7 +70,26 @@ export default function ChatPage() {
         msg.senderId === activeRecipientIdRef.current ||
         msg.recipientId === activeRecipientIdRef.current
       ) {
-        setMessages((prev) => [...prev, msg]);
+        setMessages((prev) => {
+          // Try to find a matching optimistic message to avoid duplicates
+          const idx = prev.findIndex((m) => {
+            const sameParties = m.senderId === msg.senderId && m.recipientId === msg.recipientId;
+            const sameText = m.text === msg.text;
+            // Consider messages within a short window as the same (optimistic vs server)
+            const mt = new Date(m.timestamp || Date.now()).getTime();
+            const st = new Date(msg.timestamp || Date.now()).getTime();
+            const closeInTime = Math.abs(mt - st) < 5000;
+            return sameParties && sameText && closeInTime;
+          });
+
+          if (idx !== -1) {
+            const copy = [...prev];
+            copy[idx] = { ...copy[idx], ...msg }; // replace optimistic with server version
+            return copy;
+          }
+
+          return [...prev, msg];
+        });
       }
     };
 
@@ -109,10 +128,13 @@ export default function ChatPage() {
 
   // Send msg
   const sendMessage = () => {
-    if (!newMsg.trim()) return;
-    socketRef.current?.emit("privateMessage", {
+    const textToSend = newMsg.trim();
+    if (!textToSend) return;
+    if (!ADMIN_USER_ID) return; // admin id missing, cannot route
+    if (!socketRef.current || !socketRef.current.connected) return; // socket not ready
+    socketRef.current.emit("privateMessage", {
       recipientId: ADMIN_USER_ID,
-      text: newMsg.trim(),
+      text: textToSend,
     });
 
     // optimistic
@@ -120,7 +142,7 @@ export default function ChatPage() {
       _id: `local-${Date.now()}`,
       senderId: userId,
       recipientId: ADMIN_USER_ID,
-      text: newMsg.trim(),
+      text: textToSend,
       timestamp: new Date().toISOString(),
     };
     setMessages((prev) => [...prev, optimistic]);
@@ -137,8 +159,12 @@ export default function ChatPage() {
   };
 
   return (
-    <div className="min-h-screen w-full flex items-center justify-center  ">
-      <div className="w-full max-w-5xl h-[80vh] bg-gradient-to-br from-violet-600 via-purple-600 to-indigo-600 dark:bg-black/20 backdrop-blur-xl rounded-2xl shadow-2xl border border-white/20  flex">
+   <div className="min-h-screen w-full pt-0 sm:pt-20 flex items-center justify-center">
+  <div className="w-[98vw] max-w-5xl h-[95vh] 
+                  bg-gradient-to-br from-violet-600 via-purple-600 to-indigo-600 
+                  dark:bg-black/20 backdrop-blur-xl 
+                  rounded-2xl shadow-2xl border border-white/20 
+                  flex overflow-hidden">
       {/* Sidebar */}
       <aside className="hidden md:flex w-72 flex-col border-r border-white/20 bg-white/5 dark:bg-white/5 p-5">
         <div className="flex items-center gap-3 mb-6">
@@ -166,50 +192,61 @@ export default function ChatPage() {
           </h2>
         </div>
 
-        {/* Messages */}
-        <div className="flex-1 overflow-y-auto px-4 sm:px-6 py-6 space-y-4 bg-transparent">
-          {messages.map((m) => {
-            const isOwn = userId && m.senderId === userId;
-            return (
-              <div
-                key={m._id}
-                className={`flex items-end gap-2 ${isOwn ? "justify-end" : "justify-start"}`}
-              >
-                {!isOwn && (
-                  <div className="h-8 w-8 rounded-full bg-white/20 text-white flex items-center justify-center text-xs border border-white/10">GS</div>
-                )}
-                <div
-                  className={`px-4 py-2 rounded-2xl max-w-[75%] text-sm shadow ${
-                    isOwn
-                      ? "bg-gradient-to-r from-violet-500 to-purple-600 text-white rounded-br-none"
-                      : "bg-white/20 backdrop-blur-md text-white rounded-bl-none border border-white/10"
-                  }`}
-                >
-                  <div>{m.text}</div>
-                  <div className={`mt-1 text-[10px] opacity-80 ${isOwn ? "text-white" : "text-violet-100"}`}>
-                    {new Date(m.timestamp || Date.now()).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-                  </div>
-                </div>
-                {isOwn && (
-                  <div className="h-8 w-8 rounded-full bg-violet-600 text-white flex items-center justify-center text-xs shadow">You</div>
-                )}
-              </div>
-            );
-          })}
-          {isTyping && (
-            <div className="flex items-center gap-2 text-xs text-violet-100 px-2">
-              <div className="h-8 w-8 rounded-full bg-white/20 text-white flex items-center justify-center text-xs border border-white/10">GS</div>
-              <div className="px-4 py-2 rounded-2xl bg-white/20 border border-white/10">
-                <span className="inline-flex gap-1">
-                  <span className="w-1.5 h-1.5 bg-white/80 rounded-full animate-bounce" style={{animationDelay:"0ms"}}></span>
-                  <span className="w-1.5 h-1.5 bg-white/60 rounded-full animate-bounce" style={{animationDelay:"100ms"}}></span>
-                  <span className="w-1.5 h-1.5 bg-white/40 rounded-full animate-bounce" style={{animationDelay:"200ms"}}></span>
-                </span>
-              </div>
-            </div>
-          )}
-          <div ref={messagesEndRef} />
+   {/* Messages */}
+<div className="flex-1 px-4 sm:px-6 py-6 space-y-4 bg-transparent 
+                overflow-y-auto hide-scrollbar">
+  {messages.map((m) => {
+    const isOwn = userId && m.senderId === userId;
+    return (
+      <div
+        key={m._id}
+        className={`flex items-end gap-2 ${isOwn ? "justify-end" : "justify-start"}`}
+      >
+        {!isOwn && (
+          <div className="h-8 w-8 rounded-full bg-white/20 text-white flex items-center justify-center text-xs border border-white/10">GS</div>
+        )}
+        <div
+          className={`px-4 py-2 rounded-2xl max-w-[75%] text-sm shadow ${
+            isOwn
+              ? "bg-gradient-to-r from-violet-500 to-purple-600 text-white rounded-br-none"
+              : "bg-white/20 backdrop-blur-md text-white rounded-bl-none border border-white/10"
+          }`}
+        >
+          <div>{m.text}</div>
+          <div className={`mt-1 text-[10px] opacity-80 ${isOwn ? "text-white" : "text-violet-100"}`}>
+            {new Date(m.timestamp || Date.now()).toLocaleTimeString([], {
+              hour: "2-digit",
+              minute: "2-digit",
+            })}
+          </div>
         </div>
+        {isOwn && (
+          <div className="h-8 w-8 rounded-full bg-violet-600 text-white flex items-center justify-center text-xs shadow">
+            You
+          </div>
+        )}
+      </div>
+    );
+  })}
+
+  {isTyping && (
+    <div className="flex items-center gap-2 text-xs text-violet-100 px-2">
+      <div className="h-8 w-8 rounded-full bg-white/20 text-white flex items-center justify-center text-xs border border-white/10">
+        GS
+      </div>
+      <div className="px-4 py-2 rounded-2xl bg-white/20 border border-white/10">
+        <span className="inline-flex gap-1">
+          <span className="w-1.5 h-1.5 bg-white/80 rounded-full animate-bounce" style={{ animationDelay: "0ms" }} />
+          <span className="w-1.5 h-1.5 bg-white/60 rounded-full animate-bounce" style={{ animationDelay: "100ms" }} />
+          <span className="w-1.5 h-1.5 bg-white/40 rounded-full animate-bounce" style={{ animationDelay: "200ms" }} />
+        </span>
+      </div>
+    </div>
+  )}
+  <div ref={messagesEndRef} />
+</div>
+
+
 
         {/* Input */}
         <div className="border-t border-white/20 bg-white/5 backdrop-blur-md p-3 sm:p-4 flex items-center gap-3 shrink-0">
