@@ -91,7 +91,12 @@ export default function AdminChatPage() {
       if ([m.senderId, m.recipientId].map(String).includes(activeId)) {
         queryClient.setQueryData(["messages", activeUser?._id], (prev = []) => {
           const filtered = prev.filter(
-            (msg) => !(msg._id.startsWith("local-") && msg.text === m.text && msg.senderId === m.senderId)
+            (msg) =>
+              !(
+                msg._id.startsWith("local-") &&
+                msg.text === m.text &&
+                msg.senderId === m.senderId
+              )
           );
           if (filtered.some((msg) => msg._id === m._id)) return filtered;
           return [...filtered, m];
@@ -118,8 +123,6 @@ export default function AdminChatPage() {
     };
   }, [token, SOCKET_URL, activeUser, queryClient]);
 
-  // Scroll to bottom on messages update
-  useEffect(() => messagesEndRef.current?.scrollIntoView({ behavior: "smooth" }), [messages, isTyping]);
 
   // Send message
   const sendMessage = () => {
@@ -153,7 +156,7 @@ export default function AdminChatPage() {
 
   return (
     <div className="flex h-screen w-full bg-gradient-to-b from-violet-200 via-purple-200 to-indigo-200 overflow-hidden">
-      {/* Sidebar */}
+      {/* Desktop Sidebar */}
       <aside className="hidden md:flex flex-col w-72 bg-violet-50 rounded-r-2xl shadow-lg overflow-y-auto">
         <div className="p-4 border-b border-purple-200 font-semibold text-purple-700 text-lg">Users</div>
         <div className="flex flex-col divide-y divide-purple-200">
@@ -178,7 +181,7 @@ export default function AdminChatPage() {
       {drawerOpen && (
         <div className="fixed inset-0 z-50 flex md:hidden">
           <div className="w-4/5 max-w-xs bg-white h-full shadow-2xl flex flex-col">
-            <div className="flex items-center justify-between p-4 border-b">
+            <div className="flex items-center justify-between border-b p-4">
               <span className="font-semibold text-lg text-purple-700">Users</span>
               <button onClick={() => setDrawerOpen(false)}>
                 <X className="w-6 h-6 text-purple-700" />
@@ -208,22 +211,20 @@ export default function AdminChatPage() {
         </div>
       )}
 
-      {/* Chat area */}
-      <div className="flex-1 flex flex-col">
+      {/* Chat Area */}
+      <div className="w-[99%] sm:flex-1 flex flex-col h-screen">
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-purple-300 bg-violet-300 sticky top-0 z-10">
           <span className="font-semibold text-purple-800 truncate">
             {activeUser ? `Chat with ${activeUser.email}` : "Select a user"}
           </span>
           <div className="flex items-center gap-2">
-            {/* Mobile drawer button */}
             <button
               className="md:hidden px-3 py-1 rounded-md bg-purple-200 hover:bg-purple-300"
               onClick={() => setDrawerOpen(true)}
             >
               Users
             </button>
-
             <button
               onClick={() => {
                 setSelectMode(!selectMode);
@@ -254,7 +255,7 @@ export default function AdminChatPage() {
           {messages.map((m) => {
             const isOwn = String(m.senderId) === String(adminId);
             return (
-              <div key={m._id} className={`flex items-end gap-2 ${isOwn ? "justify-end" : "justify-start"}`}>
+              <div key={m._id} className={`flex items-end gap-2 ${isOwn ? "justify-end" : "justify-start"} flex-wrap`}>
                 {selectMode && (
                   <input
                     type="checkbox"
@@ -264,10 +265,12 @@ export default function AdminChatPage() {
                   />
                 )}
                 {!isOwn && (
-                  <div className="h-8 w-8 rounded-full bg-purple-300 text-purple-700 flex items-center justify-center text-xs">U</div>
+                  <div className="h-8 w-8 rounded-full bg-purple-300 text-purple-700 flex items-center justify-center text-xs">
+                    U
+                  </div>
                 )}
                 <div
-                  className={`px-4 py-2 rounded-2xl text-sm shadow break-words max-w-[70%] ${
+                  className={`px-4 py-2 rounded-2xl text-sm shadow break-words flex-shrink max-w-full sm:max-w-[70%] ${
                     isOwn
                       ? "bg-gradient-to-r from-violet-500 to-purple-600 text-white rounded-br-none"
                       : "bg-purple-100 text-purple-900 rounded-bl-none border border-purple-300"
@@ -275,11 +278,16 @@ export default function AdminChatPage() {
                 >
                   <div>{m.text}</div>
                   <div className="mt-1 text-[10px] opacity-70 text-right">
-                    {new Date(m.timestamp || Date.now()).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                    {new Date(m.timestamp || Date.now()).toLocaleTimeString([], {
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    })}
                   </div>
                 </div>
                 {isOwn && (
-                  <div className="h-8 w-8 rounded-full bg-violet-600 text-white flex items-center justify-center text-xs shadow">You</div>
+                  <div className="h-8 w-8 rounded-full bg-violet-600 text-white flex items-center justify-center text-xs shadow">
+                    You
+                  </div>
                 )}
               </div>
             );
@@ -299,8 +307,8 @@ export default function AdminChatPage() {
           <div ref={messagesEndRef} />
         </div>
 
-        {/* Input */}
-        <div className="flex p-3 border-t border-purple-300 bg-purple-50 sticky bottom-0 z-10">
+        {/* Input area */}
+        <div className="flex p-3 mb-4 pb-4 border-t border-purple-300 bg-purple-50 sticky bottom-0 z-10">
           <input
             className="flex-1 p-3 rounded-full border border-purple-300 focus:outline-none focus:ring-2 focus:ring-purple-500 text-purple-800 placeholder-purple-400"
             placeholder="Type your message..."
