@@ -23,7 +23,7 @@ export default function ChatPage() {
 
   const queryClient = useQueryClient();
 
-  // Load token
+  // Load token from localStorage
   useEffect(() => {
     if (typeof window !== "undefined") {
       const stored = localStorage.getItem("token");
@@ -32,7 +32,7 @@ export default function ChatPage() {
     }
   }, [router]);
 
-  // Decode userId
+  // Decode token to get userId
   useEffect(() => {
     if (!token) return;
     try {
@@ -43,11 +43,8 @@ export default function ChatPage() {
     }
   }, [token, router]);
 
-  // Fetch messages using React Query
-  const {
-    data: messages = [],
-    isLoading: isHistoryLoading,
-  } = useQuery({
+  // Fetch messages history
+  const { data: messages = [], isLoading: isHistoryLoading } = useQuery({
     queryKey: ["messages", ADMIN_USER_ID],
     queryFn: async () => {
       const res = await axios.get(`/api/messages?userId=${ADMIN_USER_ID}`, {
@@ -58,20 +55,25 @@ export default function ChatPage() {
     enabled: !!token,
   });
 
-  // Socket setup
+  // Setup socket
   useEffect(() => {
     if (!token) return;
     if (!socketRef.current) {
       socketRef.current = io(SOCKET_URL, { query: { token } });
     }
 
+    // Debug socket connection
+    socketRef.current.on("connect", () => {
+      console.log("✅ Connected to socket server:", socketRef.current.id);
+    });
+    socketRef.current.on("connect_error", (err) => {
+      console.error("❌ Socket connection error:", err.message);
+    });
+
     const handlePrivateMessage = (msg) => {
       const adminStr = String(ADMIN_USER_ID);
-      const senderStr = String(msg.senderId);
-      const recipientStr = String(msg.recipientId);
-      if (senderStr === adminStr || recipientStr === adminStr) {
+      if ([String(msg.senderId), String(msg.recipientId)].includes(adminStr)) {
         queryClient.setQueryData(["messages", ADMIN_USER_ID], (prev = []) => {
-          // Prevent duplicate messages
           if (prev.some((m) => m._id === msg._id)) return prev;
           return [...prev, msg];
         });
@@ -97,7 +99,7 @@ export default function ChatPage() {
     };
   }, [token, ADMIN_USER_ID, SOCKET_URL, queryClient]);
 
-  // Scroll to bottom on message updates
+  // Auto-scroll on new messages
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, isTyping]);
@@ -105,7 +107,7 @@ export default function ChatPage() {
   // Send message
   const sendMessage = () => {
     const text = newMsg.trim();
-    if (!text || !socketRef.current?.connected) return;
+    if (!text || !socketRef.current) return;
 
     const optimistic = {
       _id: `local-${Date.now()}`,
@@ -115,18 +117,25 @@ export default function ChatPage() {
       timestamp: new Date().toISOString(),
     };
 
-    // Optimistic update
+    // Optimistic UI update
     queryClient.setQueryData(["messages", ADMIN_USER_ID], (prev = []) => [...prev, optimistic]);
 
-    socketRef.current.emit("privateMessage", { recipientId: ADMIN_USER_ID, text });
+    // Send to server (include senderId!)
+    socketRef.current.emit("privateMessage", {
+      senderId: userId,
+      recipientId: ADMIN_USER_ID,
+      text,
+    });
+
     setNewMsg("");
   };
 
+  // Handle typing events
   const handleChange = (e) => {
     setNewMsg(e.target.value);
     const now = Date.now();
     if (now - lastTypingEmitRef.current > 500) {
-      socketRef.current?.emit("typing", { recipientId: ADMIN_USER_ID });
+      socketRef.current?.emit("typing", { recipientId: ADMIN_USER_ID, senderId: userId });
       lastTypingEmitRef.current = now;
     }
   };
@@ -155,14 +164,31 @@ export default function ChatPage() {
               const isOwn = m.senderId === userId;
               return (
                 <div key={m._id} className={`flex items-end gap-2 ${isOwn ? "justify-end" : "justify-start"}`}>
-                  {!isOwn && <div className="h-8 w-8 rounded-full bg-white/20 text-white flex items-center justify-center text-xs">GS</div>}
-                  <div className={`px-4 py-2 rounded-2xl max-w-[75%] text-sm ${isOwn ? "bg-gradient-to-r from-violet-500 to-purple-600 text-white" : "bg-white/20 text-white border border-white/10"}`}>
+                  {!isOwn && (
+                    <div className="h-8 w-8 rounded-full bg-white/20 text-white flex items-center justify-center text-xs">
+                      GS
+                    </div>
+                  )}
+                  <div
+                    className={`px-4 py-2 rounded-2xl max-w-[75%] text-sm ${
+                      isOwn
+                        ? "bg-gradient-to-r from-violet-500 to-purple-600 text-white"
+                        : "bg-white/20 text-white border border-white/10"
+                    }`}
+                  >
                     <div>{m.text}</div>
                     <div className="text-[10px] opacity-70 mt-1 text-right">
-                      {new Date(m.timestamp || Date.now()).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                      {new Date(m.timestamp || Date.now()).toLocaleTimeString([], {
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })}
                     </div>
                   </div>
-                  {isOwn && <div className="h-8 w-8 rounded-full bg-violet-600 text-white flex items-center justify-center text-xs">You</div>}
+                  {isOwn && (
+                    <div className="h-8 w-8 rounded-full bg-violet-600 text-white flex items-center justify-center text-xs">
+                      You
+                    </div>
+                  )}
                 </div>
               );
             })}
@@ -182,7 +208,7 @@ export default function ChatPage() {
           </div>
 
           {/* Input */}
-          <div className="p-3 border-t border-white/20 bg-white/5 backdrop-blur-md flex items-center gap-3">
+          <div className="p-3 border-t border-white/20 bg-white/5 backdrop-blur-md flex items-center gap-3 sticky bottom-0">
             <input
               type="text"
               value={newMsg}
