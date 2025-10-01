@@ -31,7 +31,10 @@ export default function AdminChatPage() {
     try {
       const payload = JSON.parse(atob(stored.split(".")[1] || ""));
       if (payload?.isAdmin) setAdminId(payload.id);
-    } catch {}
+    } catch(error){
+      console.error("Invalid token", error);
+    };
+    
   }, []);
 
   // Fetch users
