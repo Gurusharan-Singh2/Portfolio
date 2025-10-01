@@ -1,19 +1,16 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 import { io } from "socket.io-client";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import axios from "axios";
 import { useRouter } from "next/navigation";
 import { Send } from "lucide-react";
 
 export default function ChatPage() {
-  const [messages, setMessages] = useState([]);
   const [newMsg, setNewMsg] = useState("");
   const [token, setToken] = useState(null);
   const [userId, setUserId] = useState(null);
   const [isTyping, setIsTyping] = useState(false);
-  const [selectMode, setSelectMode] = useState(false);
-  const [selectedIds, setSelectedIds] = useState(new Set());
 
   const router = useRouter();
   const socketRef = useRef(null);
@@ -24,31 +21,33 @@ export default function ChatPage() {
   const SOCKET_URL = process.env.NEXT_PUBLIC_SOCKET_URL;
   const ADMIN_USER_ID = process.env.NEXT_PUBLIC_ADMIN_ID;
 
+  const queryClient = useQueryClient();
+
   // Load token
   useEffect(() => {
     if (typeof window !== "undefined") {
       const stored = localStorage.getItem("token");
-      if (!stored) {
-        router.push("/login");
-      } else {
-        setToken(stored);
-      }
+      if (!stored) router.push("/login");
+      else setToken(stored);
     }
   }, [router]);
 
   // Decode userId
   useEffect(() => {
-    if (!token) return; // wait for token load
+    if (!token) return;
     try {
       const payload = JSON.parse(atob(token.split(".")[1] || ""));
       setUserId(payload?.id || null);
-    } catch (err) {
+    } catch {
       router.push("/login");
     }
   }, [token, router]);
 
-  // Fetch history
-  const { data: initialMessages, isLoading: isHistoryLoading } = useQuery({
+  // Fetch messages using React Query
+  const {
+    data: messages = [],
+    isLoading: isHistoryLoading,
+  } = useQuery({
     queryKey: ["messages", ADMIN_USER_ID],
     queryFn: async () => {
       const res = await axios.get(`/api/messages?userId=${ADMIN_USER_ID}`, {
@@ -56,10 +55,10 @@ export default function ChatPage() {
       });
       return res.data;
     },
-    enabled: Boolean(token),
+    enabled: !!token,
   });
 
-  // Init socket
+  // Socket setup
   useEffect(() => {
     if (!token) return;
     if (!socketRef.current) {
@@ -67,31 +66,13 @@ export default function ChatPage() {
     }
 
     const handlePrivateMessage = (msg) => {
-      const senderIdStr = msg?.senderId ? String(msg.senderId) : null;
-      const recipientIdStr = msg?.recipientId ? String(msg.recipientId) : null;
-      const adminIdStr = ADMIN_USER_ID ? String(ADMIN_USER_ID) : null;
-
-      if (senderIdStr === adminIdStr || recipientIdStr === adminIdStr) {
-        setMessages((prev) => {
-          // Try to find a matching optimistic message to avoid duplicates
-          const idx = prev.findIndex((m) => {
-            const mSender = m?.senderId ? String(m.senderId) : null;
-            const mRecipient = m?.recipientId ? String(m.recipientId) : null;
-            const sameParties = mSender === senderIdStr && mRecipient === recipientIdStr;
-            const sameText = m.text === msg.text;
-            // Consider messages within a short window as the same (optimistic vs server)
-            const mt = new Date(m.timestamp || Date.now()).getTime();
-            const st = new Date(msg.timestamp || Date.now()).getTime();
-            const closeInTime = Math.abs(mt - st) < 5000;
-            return sameParties && sameText && closeInTime;
-          });
-
-          if (idx !== -1) {
-            const copy = [...prev];
-            copy[idx] = { ...copy[idx], ...msg }; // replace optimistic with server version
-            return copy;
-          }
-
+      const adminStr = String(ADMIN_USER_ID);
+      const senderStr = String(msg.senderId);
+      const recipientStr = String(msg.recipientId);
+      if (senderStr === adminStr || recipientStr === adminStr) {
+        queryClient.setQueryData(["messages", ADMIN_USER_ID], (prev = []) => {
+          // Prevent duplicate messages
+          if (prev.some((m) => m._id === msg._id)) return prev;
           return [...prev, msg];
         });
       }
@@ -109,73 +90,36 @@ export default function ChatPage() {
     socketRef.current.on("typing", handleTyping);
 
     return () => {
-      if (socketRef.current) {
-        socketRef.current.off("privateMessage", handlePrivateMessage);
-        socketRef.current.off("typing", handleTyping);
-        socketRef.current.disconnect();
-        socketRef.current = null;
-      }
+      socketRef.current?.off("privateMessage", handlePrivateMessage);
+      socketRef.current?.off("typing", handleTyping);
+      socketRef.current?.disconnect();
+      socketRef.current = null;
     };
-  }, [token, ADMIN_USER_ID, SOCKET_URL]);
+  }, [token, ADMIN_USER_ID, SOCKET_URL, queryClient]);
 
-  // Load initial history
-  useEffect(() => {
-    if (Array.isArray(initialMessages)) {
-      setMessages(initialMessages);
-    }
-  }, [initialMessages]);
-
-  // Scroll to bottom
+  // Scroll to bottom on message updates
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, isTyping]);
 
-  // Send msg
+  // Send message
   const sendMessage = () => {
-    const textToSend = newMsg.trim();
-    if (!textToSend) return;
-    if (!ADMIN_USER_ID) return; // admin id missing, cannot route
-    if (!socketRef.current || !socketRef.current.connected) return; // socket not ready
-    socketRef.current.emit("privateMessage", {
-      recipientId: ADMIN_USER_ID,
-      text: textToSend,
-    });
+    const text = newMsg.trim();
+    if (!text || !socketRef.current?.connected) return;
 
-    // optimistic
     const optimistic = {
       _id: `local-${Date.now()}`,
       senderId: userId,
       recipientId: ADMIN_USER_ID,
-      text: textToSend,
+      text,
       timestamp: new Date().toISOString(),
     };
-    setMessages((prev) => [...prev, optimistic]);
+
+    // Optimistic update
+    queryClient.setQueryData(["messages", ADMIN_USER_ID], (prev = []) => [...prev, optimistic]);
+
+    socketRef.current.emit("privateMessage", { recipientId: ADMIN_USER_ID, text });
     setNewMsg("");
-  };
-
-  const toggleSelect = (id) => {
-    setSelectedIds((prev) => {
-      const copy = new Set(prev);
-      if (copy.has(id)) copy.delete(id); else copy.add(id);
-      return copy;
-    });
-  };
-
-  const deleteSelected = async () => {
-    if (!selectedIds.size) return;
-    try {
-      const ids = Array.from(selectedIds);
-      await axios.delete("/api/messages", {
-        headers: { Authorization: `Bearer ${token}` },
-        data: { ids },
-      });
-      setMessages((prev) => prev.filter((m) => !selectedIds.has(String(m._id))));
-      setSelectedIds(new Set());
-      setSelectMode(false);
-    } catch (e) {
-      console.error("Delete failed", e);
-      alert("Failed to delete messages");
-    }
   };
 
   const handleChange = (e) => {
@@ -188,148 +132,74 @@ export default function ChatPage() {
   };
 
   return (
-   <div className="min-h-screen w-full pt-0 sm:pt-20 flex items-center justify-center">
-  <div className="w-[98vw] max-w-5xl h-[95vh] 
-                  bg-gradient-to-br from-violet-600 via-purple-600 to-indigo-600 
-                  dark:bg-black/20 backdrop-blur-xl 
-                  rounded-2xl shadow-2xl border border-white/20 
-                  flex overflow-hidden">
-      {/* Sidebar */}
-      <aside className="hidden md:flex w-72 flex-col border-r border-white/20 bg-white/5 dark:bg-white/5 p-5">
-        <div className="flex items-center gap-3 mb-6">
-          <div className="h-12 w-12 rounded-full bg-violet-600 flex items-center justify-center text-white font-semibold shadow">
-            GS
-          </div>
-          <div>
-            <p className="text-sm font-semibold text-white">
-              Gurusharan Singh
-            </p>
-            <p className="text-xs text-violet-200">Online</p>
-          </div>
-        </div>
-        <div className="text-xs text-violet-100/80">
-          Support Chat • Feel free to ask any questions
-        </div>
-      </aside>
+    <div className="min-h-screen w-full flex items-center justify-center bg-gradient-to-br from-violet-700 to-purple-700 p-4">
+      <div className="w-full max-w-5xl h-[90vh] bg-white/10 backdrop-blur-lg rounded-2xl flex overflow-hidden shadow-2xl border border-white/20">
+        {/* Sidebar */}
+        <aside className="hidden md:flex w-72 flex-col bg-white/5 p-5 border-r border-white/20">
+          <div className="text-white font-semibold mb-4">Support Chat</div>
+          <div className="text-xs text-white/70">Gurusharan Singh • Online</div>
+        </aside>
 
-      {/* Main Chat Area */}
-      <main className="flex-1 flex flex-col">
-        {/* Header */}
-        <div className="px-4 py-4 border-b border-white/20 bg-white/5 backdrop-blur-md shrink-0 flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-white">Chat Support</h2>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => {
-                setSelectMode((s) => !s);
-                setSelectedIds(new Set());
-              }}
-              className="px-3 py-1 rounded-md text-sm bg-white/20 text-white hover:bg-white/30 border border-white/30"
-            >
-              {selectMode ? "Cancel" : "Select"}
-            </button>
-            {selectMode && (
-              <button
-                onClick={deleteSelected}
-                disabled={!selectedIds.size}
-                className={`px-3 py-1 rounded-md text-sm ${selectedIds.size ? "bg-red-600 hover:bg-red-700 text-white" : "bg-red-300 text-white/70 cursor-not-allowed"}`}
-              >
-                Delete ({selectedIds.size})
-              </button>
-            )}
+        {/* Chat Area */}
+        <main className="flex-1 flex flex-col">
+          {/* Header */}
+          <div className="px-4 py-3 border-b border-white/20 bg-white/5 backdrop-blur-md flex items-center justify-between">
+            <h2 className="text-white font-semibold">Chat Support</h2>
           </div>
-        </div>
 
-   {/* Messages */}
-<div className="flex-1 px-4 sm:px-6 py-6 space-y-4 bg-transparent 
-                overflow-y-auto hide-scrollbar">
-  {isHistoryLoading && (
-    <div className="w-full flex justify-center py-6">
-      <div className="flex items-center gap-2 text-white/80">
-        <span className="h-5 w-5 rounded-full border-2 border-white/30 border-t-white animate-spin"></span>
-        <span>Loading messages...</span>
-      </div>
-    </div>
-  )}
+          {/* Messages */}
+          <div className="flex-1 p-4 overflow-y-auto space-y-4">
+            {isHistoryLoading && <div className="text-white/80">Loading messages...</div>}
 
-  {messages.map((m) => {
-    const isOwn = userId && m.senderId === userId;
-    return (
-      <div
-        key={m._id}
-        className={`flex items-end gap-2 ${isOwn ? "justify-end" : "justify-start"}`}
-      >
-        {selectMode && (
-          <input
-            type="checkbox"
-            className="mt-auto mb-1"
-            checked={selectedIds.has(String(m._id))}
-            onChange={() => toggleSelect(String(m._id))}
-          />
-        )}
-        {!isOwn && (
-          <div className="h-8 w-8 rounded-full bg-white/20 text-white flex items-center justify-center text-xs border border-white/10">GS</div>
-        )}
-        <div
-          className={`px-4 py-2 rounded-2xl max-w-[75%] text-sm shadow ${
-            isOwn
-              ? "bg-gradient-to-r from-violet-500 to-purple-600 text-white rounded-br-none"
-              : "bg-white/20 backdrop-blur-md text-white rounded-bl-none border border-white/10"
-          }`}
-        >
-          <div>{m.text}</div>
-          <div className={`mt-1 text-[10px] opacity-80 ${isOwn ? "text-white" : "text-violet-100"}`}>
-            {new Date(m.timestamp || Date.now()).toLocaleTimeString([], {
-              hour: "2-digit",
-              minute: "2-digit",
+            {messages.map((m) => {
+              const isOwn = m.senderId === userId;
+              return (
+                <div key={m._id} className={`flex items-end gap-2 ${isOwn ? "justify-end" : "justify-start"}`}>
+                  {!isOwn && <div className="h-8 w-8 rounded-full bg-white/20 text-white flex items-center justify-center text-xs">GS</div>}
+                  <div className={`px-4 py-2 rounded-2xl max-w-[75%] text-sm ${isOwn ? "bg-gradient-to-r from-violet-500 to-purple-600 text-white" : "bg-white/20 text-white border border-white/10"}`}>
+                    <div>{m.text}</div>
+                    <div className="text-[10px] opacity-70 mt-1 text-right">
+                      {new Date(m.timestamp || Date.now()).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                    </div>
+                  </div>
+                  {isOwn && <div className="h-8 w-8 rounded-full bg-violet-600 text-white flex items-center justify-center text-xs">You</div>}
+                </div>
+              );
             })}
+
+            {isTyping && (
+              <div className="flex items-center gap-2 text-xs text-white/70">
+                <div className="h-8 w-8 rounded-full bg-white/20 flex items-center justify-center text-xs">GS</div>
+                <div className="px-4 py-2 rounded-2xl bg-white/20 flex items-center gap-1">
+                  <span className="w-2 h-2 bg-white rounded-full animate-bounce" />
+                  <span className="w-2 h-2 bg-white rounded-full animate-bounce delay-200" />
+                  <span className="w-2 h-2 bg-white rounded-full animate-bounce delay-400" />
+                </div>
+              </div>
+            )}
+
+            <div ref={messagesEndRef} />
           </div>
-        </div>
-        {isOwn && (
-          <div className="h-8 w-8 rounded-full bg-violet-600 text-white flex items-center justify-center text-xs shadow">
-            You
+
+          {/* Input */}
+          <div className="p-3 border-t border-white/20 bg-white/5 backdrop-blur-md flex items-center gap-3">
+            <input
+              type="text"
+              value={newMsg}
+              onChange={handleChange}
+              placeholder="Type your message..."
+              className="flex-1 p-3 rounded-full border border-white/20 bg-white/10 text-white placeholder-white/70 focus:outline-none focus:ring-2 focus:ring-violet-400"
+              onKeyDown={(e) => e.key === "Enter" && sendMessage()}
+            />
+            <button
+              onClick={sendMessage}
+              className="p-3 bg-gradient-to-r from-violet-500 to-purple-600 text-white rounded-full hover:from-violet-600 hover:to-purple-700 transition flex items-center justify-center"
+            >
+              <Send size={18} />
+            </button>
           </div>
-        )}
+        </main>
       </div>
-    );
-  })}
-
-  {isTyping && (
-    <div className="flex items-center gap-2 text-xs text-violet-100 px-2">
-      <div className="h-8 w-8 rounded-full bg-white/20 text-white flex items-center justify-center text-xs border border-white/10">
-        GS
-      </div>
-      <div className="px-4 py-2 rounded-2xl bg-white/20 border border-white/10">
-        <span className="inline-flex gap-1">
-          <span className="w-1.5 h-1.5 bg-white/80 rounded-full animate-bounce" style={{ animationDelay: "0ms" }} />
-          <span className="w-1.5 h-1.5 bg-white/60 rounded-full animate-bounce" style={{ animationDelay: "100ms" }} />
-          <span className="w-1.5 h-1.5 bg-white/40 rounded-full animate-bounce" style={{ animationDelay: "200ms" }} />
-        </span>
-      </div>
-    </div>
-  )}
-  <div ref={messagesEndRef} />
-</div>
-
-
-
-        {/* Input */}
-        <div className="border-t border-white/20 bg-white/5 backdrop-blur-md p-3 sm:p-4 flex items-center gap-3 shrink-0">
-          <input
-            className="flex-1 p-3 text-sm rounded-full border border-white/20 bg-white/10 text-white placeholder-violet-200 focus:outline-none focus:ring-2 focus:ring-violet-400 focus:border-transparent"
-            value={newMsg}
-            onChange={handleChange}
-            placeholder="Type your message..."
-            onKeyDown={(e) => e.key === "Enter" && sendMessage()}
-          />
-          <button
-            onClick={sendMessage}
-            className="p-3 bg-gradient-to-r from-violet-500 to-purple-600 text-white rounded-full hover:from-violet-600 hover:to-purple-700 transition flex items-center justify-center shadow"
-          >
-            <Send size={18} />
-          </button>
-        </div>
-      </main>
-    </div>
     </div>
   );
 }
