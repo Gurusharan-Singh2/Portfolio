@@ -62,23 +62,49 @@ export default function ChatPage() {
       socketRef.current = io(SOCKET_URL, { query: { token } });
     }
 
-    // Debug socket connection
     socketRef.current.on("connect", () => {
-      console.log("✅ Connected to socket server:", socketRef.current.id);
+      console.log("✅ Connected to socket:", socketRef.current.id);
     });
     socketRef.current.on("connect_error", (err) => {
-      console.error("❌ Socket connection error:", err.message);
+      console.error("❌ Socket error:", err.message);
     });
 
-    const handlePrivateMessage = (msg) => {
-      const adminStr = String(ADMIN_USER_ID);
-      if ([String(msg.senderId), String(msg.recipientId)].includes(adminStr)) {
-        queryClient.setQueryData(["messages", ADMIN_USER_ID], (prev = []) => {
-          if (prev.some((m) => m._id === msg._id)) return prev;
-          return [...prev, msg];
-        });
+  const handlePrivateMessage = (msg) => {
+  const adminStr = String(ADMIN_USER_ID);
+  if ([String(msg.senderId), String(msg.recipientId)].includes(adminStr)) {
+    queryClient.setQueryData(["messages", ADMIN_USER_ID], (prev = []) => {
+      if (!prev) return [msg];
+
+      // If server echoes back with clientId → replace optimistic one
+      if (msg.clientId) {
+        return prev.map((m) => (m._id === msg.clientId ? msg : m));
       }
-    };
+
+      // Otherwise: replace any "pending" optimistic messages with same text + sender
+      let replaced = false;
+      const updated = prev.map((m) => {
+        if (
+          m.pending &&
+          m.text === msg.text &&
+          m.senderId === msg.senderId
+        ) {
+          replaced = true;
+          return msg; // replace optimistic with real one
+        }
+        return m;
+      });
+
+      if (replaced) return updated;
+
+      // If not replaced and not already exists, just add
+      const exists = prev.some(
+        (m) => m._id === msg._id || (m.text === msg.text && m.senderId === msg.senderId)
+      );
+      return exists ? prev : [...prev, msg];
+    });
+  }
+};
+
 
     const handleTyping = (payload) => {
       if (payload?.senderId === ADMIN_USER_ID) {
@@ -109,22 +135,28 @@ export default function ChatPage() {
     const text = newMsg.trim();
     if (!text || !socketRef.current) return;
 
+    const clientId = `local-${Date.now()}`;
     const optimistic = {
-      _id: `local-${Date.now()}`,
+      _id: clientId,
       senderId: userId,
       recipientId: ADMIN_USER_ID,
       text,
       timestamp: new Date().toISOString(),
+      pending: true,
     };
 
-    // Optimistic UI update
-    queryClient.setQueryData(["messages", ADMIN_USER_ID], (prev = []) => [...prev, optimistic]);
+    // Optimistic UI
+    queryClient.setQueryData(["messages", ADMIN_USER_ID], (prev = []) => [
+      ...prev,
+      optimistic,
+    ]);
 
-    // Send to server (include senderId!)
+    // Send to server with clientId
     socketRef.current.emit("privateMessage", {
       senderId: userId,
       recipientId: ADMIN_USER_ID,
       text,
+      clientId,
     });
 
     setNewMsg("");
@@ -135,7 +167,10 @@ export default function ChatPage() {
     setNewMsg(e.target.value);
     const now = Date.now();
     if (now - lastTypingEmitRef.current > 500) {
-      socketRef.current?.emit("typing", { recipientId: ADMIN_USER_ID, senderId: userId });
+      socketRef.current?.emit("typing", {
+        recipientId: ADMIN_USER_ID,
+        senderId: userId,
+      });
       lastTypingEmitRef.current = now;
     }
   };
@@ -158,12 +193,19 @@ export default function ChatPage() {
 
           {/* Messages */}
           <div className="flex-1 p-4 overflow-y-auto space-y-4">
-            {isHistoryLoading && <div className="text-white/80">Loading messages...</div>}
+            {isHistoryLoading && (
+              <div className="text-white/80">Loading messages...</div>
+            )}
 
             {messages.map((m) => {
               const isOwn = m.senderId === userId;
               return (
-                <div key={m._id} className={`flex items-end gap-2 ${isOwn ? "justify-end" : "justify-start"}`}>
+                <div
+                  key={m._id}
+                  className={`flex items-end gap-2 ${
+                    isOwn ? "justify-end" : "justify-start"
+                  }`}
+                >
                   {!isOwn && (
                     <div className="h-8 w-8 rounded-full bg-white/20 text-white flex items-center justify-center text-xs">
                       GS
@@ -178,10 +220,15 @@ export default function ChatPage() {
                   >
                     <div>{m.text}</div>
                     <div className="text-[10px] opacity-70 mt-1 text-right">
-                      {new Date(m.timestamp || Date.now()).toLocaleTimeString([], {
-                        hour: "2-digit",
-                        minute: "2-digit",
-                      })}
+                      {m.pending
+                        ? "sending..."
+                        : new Date(m.timestamp || Date.now()).toLocaleTimeString(
+                            [],
+                            {
+                              hour: "2-digit",
+                              minute: "2-digit",
+                            }
+                          )}
                     </div>
                   </div>
                   {isOwn && (
@@ -195,7 +242,9 @@ export default function ChatPage() {
 
             {isTyping && (
               <div className="flex items-center gap-2 text-xs text-white/70">
-                <div className="h-8 w-8 rounded-full bg-white/20 flex items-center justify-center text-xs">GS</div>
+                <div className="h-8 w-8 rounded-full bg-white/20 flex items-center justify-center text-xs">
+                  GS
+                </div>
                 <div className="px-4 py-2 rounded-2xl bg-white/20 flex items-center gap-1">
                   <span className="w-2 h-2 bg-white rounded-full animate-bounce" />
                   <span className="w-2 h-2 bg-white rounded-full animate-bounce delay-200" />
