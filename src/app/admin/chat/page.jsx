@@ -40,7 +40,9 @@ export default function AdminChatPage() {
     queryKey: ["users"],
     queryFn: async () => {
       if (!token) return [];
-      const res = await axios.get("/api/admin/users", { headers: { Authorization: `Bearer ${token}` } });
+      const res = await axios.get("/api/admin/users", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
       return res.data;
     },
     enabled: !!token,
@@ -65,7 +67,10 @@ export default function AdminChatPage() {
   // Delete selected messages
   const deleteMutation = useMutation({
     mutationFn: async (ids) => {
-      await axios.delete("/api/messages", { headers: { Authorization: `Bearer ${token}` }, data: { ids } });
+      await axios.delete("/api/messages", {
+        headers: { Authorization: `Bearer ${token}` },
+        data: { ids },
+      });
     },
     onSuccess: (_, ids) => {
       queryClient.setQueryData(["messages", activeUser?._id], (old = []) =>
@@ -169,6 +174,40 @@ export default function AdminChatPage() {
         </div>
       </aside>
 
+      {/* Mobile Drawer */}
+      {drawerOpen && (
+        <div className="fixed inset-0 z-50 flex md:hidden">
+          <div className="w-4/5 max-w-xs bg-white h-full shadow-2xl flex flex-col">
+            <div className="flex items-center justify-between p-4 border-b">
+              <span className="font-semibold text-lg text-purple-700">Users</span>
+              <button onClick={() => setDrawerOpen(false)}>
+                <X className="w-6 h-6 text-purple-700" />
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto divide-y divide-purple-200">
+              {users.map((u) => (
+                <button
+                  key={u._id}
+                  onClick={() => {
+                    setActiveUser(u);
+                    setDrawerOpen(false);
+                  }}
+                  className={`flex items-center gap-3 p-3 text-left w-full hover:bg-purple-100 transition rounded-lg ${
+                    activeUser?._id === u._id ? "bg-purple-200 font-semibold" : ""
+                  }`}
+                >
+                  <div className="h-8 w-8 rounded-full bg-purple-400 text-white flex items-center justify-center text-xs">
+                    {u.email[0].toUpperCase()}
+                  </div>
+                  <span className="truncate">{u.email}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="flex-1" onClick={() => setDrawerOpen(false)} />
+        </div>
+      )}
+
       {/* Chat area */}
       <div className="flex-1 flex flex-col">
         {/* Header */}
@@ -177,6 +216,14 @@ export default function AdminChatPage() {
             {activeUser ? `Chat with ${activeUser.email}` : "Select a user"}
           </span>
           <div className="flex items-center gap-2">
+            {/* Mobile drawer button */}
+            <button
+              className="md:hidden px-3 py-1 rounded-md bg-purple-200 hover:bg-purple-300"
+              onClick={() => setDrawerOpen(true)}
+            >
+              Users
+            </button>
+
             <button
               onClick={() => {
                 setSelectMode(!selectMode);
@@ -209,7 +256,12 @@ export default function AdminChatPage() {
             return (
               <div key={m._id} className={`flex items-end gap-2 ${isOwn ? "justify-end" : "justify-start"}`}>
                 {selectMode && (
-                  <input type="checkbox" className="mt-auto mb-1" checked={selectedIds.has(String(m._id))} onChange={() => toggleSelect(String(m._id))} />
+                  <input
+                    type="checkbox"
+                    className="mt-auto mb-1"
+                    checked={selectedIds.has(String(m._id))}
+                    onChange={() => toggleSelect(String(m._id))}
+                  />
                 )}
                 {!isOwn && (
                   <div className="h-8 w-8 rounded-full bg-purple-300 text-purple-700 flex items-center justify-center text-xs">U</div>
