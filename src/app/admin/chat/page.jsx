@@ -33,7 +33,7 @@ export default function AdminChatPage() {
       if (payload?.isAdmin) setAdminId(payload.id);
     } catch(error){
       console.error("Invalid token", error);
-    };
+    }
     
   }, []);
 
