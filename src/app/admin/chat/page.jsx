@@ -18,6 +18,7 @@ export default function ChatPage() {
   const [socket, setSocket] = useState(null);
   const [isTyping, setIsTyping] = useState(false);
   const [onlineUsers, setOnlineUsers] = useState(new Set());
+  const [loadingUsers, setLoadingUsers] = useState(true);
   
   const scrollRef = useRef(null);
   const socketRef = useRef(null);
@@ -167,6 +168,7 @@ export default function ChatPage() {
 
 
   const fetchUsers = async () => {
+    setLoadingUsers(true);
     const token = localStorage.getItem("token");
     try {
         const res = await fetch("/api/users", {
@@ -176,7 +178,11 @@ export default function ChatPage() {
             const data = await res.json();
             setUsers(data);
         }
-    } catch (e) { console.error(e); }
+    } catch (e) { 
+        console.error(e); 
+    } finally {
+        setLoadingUsers(false);
+    }
   };
 
   const fetchMessages = async (userId) => {
@@ -253,31 +259,40 @@ export default function ChatPage() {
           <CardTitle className="text-lg">Chats</CardTitle>
         </CardHeader>
         <CardContent className="p-0 flex-1 overflow-y-auto">
-          {users.map((user) => (
-            <div
-              key={user._id}
-              onClick={() => setSelectedUser(user)}
-              className={cn(
-                "flex items-center gap-3 p-4 cursor-pointer hover:bg-muted transition border-b last:border-0",
-                selectedUser?._id === user._id && "bg-muted"
-              )}
-            >
-              <div className="relative">
-                  <Avatar>
-                     <AvatarFallback><User /></AvatarFallback>
-                  </Avatar>
-                  {onlineUsers.has(String(user._id)) && (
-                      <span className="absolute bottom-0 right-0 h-3 w-3 rounded-full bg-green-500 border-2 border-white"></span>
-                  )}
-              </div>
-              <div className="overflow-hidden">
-                <p className="font-medium truncate">{user.email}</p>
-                <p className="text-xs text-muted-foreground truncate">Click to chat</p>
-              </div>
+          {loadingUsers ? (
+            <div className="flex flex-col items-center justify-center h-full gap-3 p-8">
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              <p className="text-sm text-muted-foreground">Loading users...</p>
             </div>
-          ))}
-          {users.length === 0 && (
-              <div className="p-4 text-center text-muted-foreground text-sm">No users found</div>
+          ) : (
+            <>
+              {users.map((user) => (
+                <div
+                  key={user._id}
+                  onClick={() => setSelectedUser(user)}
+                  className={cn(
+                    "flex items-center gap-3 p-4 cursor-pointer hover:bg-muted transition border-b last:border-0",
+                    selectedUser?._id === user._id && "bg-muted"
+                  )}
+                >
+                  <div className="relative">
+                      <Avatar>
+                         <AvatarFallback><User /></AvatarFallback>
+                      </Avatar>
+                      {onlineUsers.has(String(user._id)) && (
+                          <span className="absolute bottom-0 right-0 h-3 w-3 rounded-full bg-green-500 border-2 border-white"></span>
+                      )}
+                  </div>
+                  <div className="overflow-hidden">
+                    <p className="font-medium truncate">{user.email}</p>
+                    <p className="text-xs text-muted-foreground truncate">Click to chat</p>
+                  </div>
+                </div>
+              ))}
+              {users.length === 0 && (
+                  <div className="p-4 text-center text-muted-foreground text-sm">No users found</div>
+              )}
+            </>
           )}
         </CardContent>
       </Card>

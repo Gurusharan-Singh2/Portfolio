@@ -13,6 +13,7 @@ import {
   LogOut,
   Menu,
   X as XIcon,
+  Folder,
 } from "lucide-react";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 
@@ -30,7 +31,16 @@ export default function AdminLayout({ children }) {
     if (!token || !storedUser) {
       router.push("/login"); // Redirect if not authenticated
     } else {
-      setUser(JSON.parse(storedUser));
+      const userData = JSON.parse(storedUser);
+      
+      // Check if user is admin
+      if (!userData.isAdmin) {
+        // User is logged in but not an admin - redirect to home
+        router.push("/");
+        return;
+      }
+      
+      setUser(userData);
     }
   }, [router]);
 
@@ -54,6 +64,12 @@ export default function AdminLayout({ children }) {
       icon: MessageSquare,
       href: "/admin/chat",
       color: "text-violet-500",
+    },
+    {
+      label: "Projects",
+      icon: Folder,
+      href: "/admin/projects",
+      color: "text-emerald-500",
     },
     {
       label: "Settings",

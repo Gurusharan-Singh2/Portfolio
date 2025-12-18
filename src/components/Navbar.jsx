@@ -11,16 +11,19 @@ const Navbar = () => {
   const [open, setOpen] = useState(false);
   const router = useRouter();
   const [isAdmin, setIsAdmin] = useState(false);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
 
   useEffect(() => {
     if (typeof window !== "undefined") {
       const token = localStorage.getItem("token");
       if (token) {
+        setIsLoggedIn(true);
         try {
           const payload = JSON.parse(atob(token.split(".")[1]));
           setIsAdmin(payload?.isAdmin);
         } catch (e) {
           console.error("Invalid token", e);
+          setIsLoggedIn(false);
         }
       }
     }
@@ -38,11 +41,17 @@ const Navbar = () => {
     { name: "Portfolio", link: "/portfolio", icon: <FaBriefcase className="h-4 w-4 text-neutral-500 dark:text-white" /> },
     { name: "Gallary", link: "/gallary", icon: <FaBriefcase className="h-4 w-4 text-neutral-500 dark:text-white" /> },
     { name: "Contact", link: "/contact", icon: <FaEnvelope className="h-4 w-4 text-neutral-500 dark:text-white" /> },
-    { name: "Chat", link: "/chat", icon: <FaEnvelope className="h-4 w-4 text-neutral-500 dark:text-white" /> },
+    { name: "Chat", link: "/chat", icon: <FaEnvelope className="h-4 w-4 text-neutral-500 dark:text-white" />, hideForAdmin: true },
     { name: "Admin", link: "/admin", icon: <FaUserShield className="h-4 w-4 text-neutral-500 dark:text-white" />, adminOnly: true },
   ];
 
-  const navItems = allNavItems.filter(item => !item.adminOnly || isAdmin);
+  const navItems = allNavItems.filter(item => {
+    // Hide items that should only show for admin users
+    if (item.adminOnly && !isAdmin) return false;
+    // Hide items that should be hidden for admin users
+    if (item.hideForAdmin && isAdmin) return false;
+    return true;
+  });
 
   return (
     <motion.div initial={{ opacity: 0, y: -100 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }} className="relative z-50 w-full">
@@ -56,17 +65,37 @@ const Navbar = () => {
         <div className="flex lg:w-full gap-6 lg:gap-3">
           <FloatingNav navItems={navItems} />
           <Switch />
-          <button
-            onClick={() => {
-              try {
-                localStorage.removeItem("token");
-              } catch { /* intentionally empty: logout may fail */ }
-              router.push("/login");
-            }}
-            className="hidden md:inline-flex px-3 py-2 rounded-md text-sm font-medium bg-violet-600 text-white hover:bg-violet-700 transition"
-          >
-            Logout
-          </button>
+          {isLoggedIn ? (
+            <button
+              onClick={() => {
+                try {
+                  localStorage.removeItem("token");
+                  localStorage.removeItem("user");
+                  setIsLoggedIn(false);
+                  setIsAdmin(false);
+                } catch { /* intentionally empty: logout may fail */ }
+                router.push("/");
+              }}
+              className="hidden md:inline-flex px-3 py-2 rounded-md text-sm font-medium bg-violet-600 text-white hover:bg-violet-700 transition"
+            >
+              Logout
+            </button>
+          ) : (
+            <div className="hidden md:flex gap-2">
+              <Link
+                href="/login"
+                className="px-3 py-2 rounded-md text-sm font-medium border border-violet-600 text-violet-600 dark:text-violet-400 hover:bg-violet-50 dark:hover:bg-violet-900/20 transition"
+              >
+                Login
+              </Link>
+              <Link
+                href="/signup"
+                className="px-3 py-2 rounded-md text-sm font-medium bg-violet-600 text-white hover:bg-violet-700 transition"
+              >
+                Sign Up
+              </Link>
+            </div>
+          )}
           <div className="block md:hidden relative">
             <button className="w-10 h-8 flex flex-col justify-between z-50 relative transition-all ease-linear duration-300" onClick={() => setOpen(!open)}>
               <motion.div variants={topVariants} animate={open ? "opened" : "closed"} className="w-10 h-1 bg-black dark:bg-white rounded origin-left"></motion.div>
@@ -90,21 +119,43 @@ const Navbar = () => {
               ))}
               <div className="absolute bottom-10 left-0 w-full flex justify-center">
                 <motion.div variants={listItemVariants}>
-                  <button
-                    onClick={() => {
-                      setOpen(false);
-                      try {
-                        localStorage.removeItem("token");
-                      } catch { /* intentionally empty: logout may fail */ }
-                      router.push("/login");
-                    }}
-                    className="px-8 py-3 rounded-md text-lg font-bold bg-violet-600 text-white hover:bg-violet-700 transition flex items-center gap-2 shadow-lg"
-                  >
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-7 h-7 mr-2">
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6A2.25 2.25 0 005.25 5.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15m3-3l-3-3m3 3H9" />
-                    </svg>
-                    Logout
-                  </button>
+                  {isLoggedIn ? (
+                    <button
+                      onClick={() => {
+                        setOpen(false);
+                        try {
+                          localStorage.removeItem("token");
+                          localStorage.removeItem("user");
+                          setIsLoggedIn(false);
+                          setIsAdmin(false);
+                        } catch { /* intentionally empty: logout may fail */ }
+                        router.push("/");
+                      }}
+                      className="px-8 py-3 rounded-md text-lg font-bold bg-violet-600 text-white hover:bg-violet-700 transition flex items-center gap-2 shadow-lg"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-7 h-7 mr-2">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6A2.25 2.25 0 005.25 5.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15m3-3l-3-3m3 3H9" />
+                      </svg>
+                      Logout
+                    </button>
+                  ) : (
+                    <div className="flex gap-3">
+                      <Link
+                        href="/login"
+                        onClick={() => setOpen(false)}
+                        className="px-6 py-3 rounded-md text-lg font-bold border-2 border-violet-600 text-white hover:bg-violet-600/20 transition"
+                      >
+                        Login
+                      </Link>
+                      <Link
+                        href="/signup"
+                        onClick={() => setOpen(false)}
+                        className="px-6 py-3 rounded-md text-lg font-bold bg-violet-600 text-white hover:bg-violet-700 transition"
+                      >
+                        Sign Up
+                      </Link>
+                    </div>
+                  )}
                 </motion.div>
               </div>
             </motion.div>

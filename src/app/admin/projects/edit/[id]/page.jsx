@@ -1,20 +1,52 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, Upload, Loader2, X } from "lucide-react";
 
-export default function AddProjectPage() {
+export default function EditProjectPage({ params }) {
   const router = useRouter();
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
   const [imagePreview, setImagePreview] = useState(null);
+  const [newImageFile, setNewImageFile] = useState(null);
   const [formData, setFormData] = useState({
     title: "",
     description: "",
     link: "",
-    image: null,
+    imageUrl: "",
   });
+
+  // Fetch project on mount
+  useEffect(() => {
+    fetchProject();
+  }, []);
+
+  const fetchProject = async () => {
+    try {
+      setLoading(true);
+      const response = await fetch(`/api/projects/${params.id}`);
+      const data = await response.json();
+
+      if (data.success) {
+        setFormData({
+          title: data.project.title,
+          description: data.project.description,
+          link: data.project.link,
+          imageUrl: data.project.imageUrl,
+        });
+        setImagePreview(data.project.imageUrl);
+      } else {
+        setError("Failed to load project");
+      }
+    } catch (err) {
+      console.error(err);
+      setError("Error loading project");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleImageChange = (e) => {
     const file = e.target.files[0];
@@ -35,7 +67,7 @@ export default function AddProjectPage() {
     }
 
     setError(null);
-    setFormData({ ...formData, image: file });
+    setNewImageFile(file);
 
     // Create preview
     const reader = new FileReader();
@@ -45,33 +77,37 @@ export default function AddProjectPage() {
     reader.readAsDataURL(file);
   };
 
-  const clearImage = () => {
-    setFormData({ ...formData, image: null });
-    setImagePreview(null);
+  const clearNewImage = () => {
+    setNewImageFile(null);
+    setImagePreview(formData.imageUrl); // Revert to original image
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError(null);
 
-    // Validate all fields
-    if (!formData.title || !formData.description || !formData.link || !formData.image) {
-      setError("All fields are required");
+    // Validate required fields
+    if (!formData.title || !formData.description || !formData.link) {
+      setError("Title, description, and link are required");
       return;
     }
 
     try {
-      setLoading(true);
+      setSaving(true);
 
-      // Create FormData for multipart upload
+      // Create FormData
       const data = new FormData();
       data.append("title", formData.title);
       data.append("description", formData.description);
       data.append("link", formData.link);
-      data.append("image", formData.image);
+      
+      // Only append new image if one was selected
+      if (newImageFile) {
+        data.append("image", newImageFile);
+      }
 
-      const response = await fetch("/api/projects", {
-        method: "POST",
+      const response = await fetch(`/api/projects/${params.id}`, {
+        method: "PUT",
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`
         },
@@ -84,15 +120,23 @@ export default function AddProjectPage() {
         // Redirect to projects list
         router.push("/admin/projects");
       } else {
-        setError(result.error || "Failed to create project");
+        setError(result.error || "Failed to update project");
       }
     } catch (err) {
       console.error(err);
-      setError("Error creating project");
+      setError("Error updating project");
     } finally {
-      setLoading(false);
+      setSaving(false);
     }
   };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <Loader2 className="w-8 h-8 animate-spin text-violet-500" />
+      </div>
+    );
+  }
 
   return (
     <div className="text-foreground max-w-3xl">
@@ -104,7 +148,7 @@ export default function AddProjectPage() {
         >
           <ArrowLeft className="w-5 h-5" />
         </Link>
-        <h1 className="text-2xl font-semibold">Add New Project</h1>
+        <h1 className="text-2xl font-semibold">Edit Project</h1>
       </div>
 
       {/* Error Message */}
@@ -157,13 +201,35 @@ export default function AddProjectPage() {
 
         {/* Image Upload */}
         <div>
-          <label className="block text-sm font-medium mb-2">Project Image *</label>
+          <label className="block text-sm font-medium mb-2">
+            Project Image {newImageFile && <span className="text-violet-400">(New image selected)</span>}
+          </label>
           
-          {!imagePreview ? (
-            <label className="flex flex-col items-center justify-center w-full h-64 border-2 border-dashed border-border rounded-lg bg-muted hover:bg-accent cursor-pointer transition">
-              <Upload className="w-12 h-12 mb-4 text-muted-foreground" />
-              <p className="text-sm text-foreground mb-2">Click to upload image</p>
-              <p className="text-xs text-muted-foreground">JPEG, PNG, WebP, GIF (max 5MB)</p>
+          <div className="space-y-3">
+            {/* Current/Preview Image */}
+            {imagePreview && (
+              <div className="relative w-full h-64 rounded-lg overflow-hidden border border-border">
+                <img
+                  src={imagePreview}
+                  alt="Preview"
+                  className="w-full h-full object-cover"
+                />
+                {newImageFile && (
+                  <button
+                    type="button"
+                    onClick={clearNewImage}
+                    className="absolute top-2 right-2 p-2 rounded-lg bg-red-500 hover:bg-red-600 transition text-white"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                )}
+              </div>
+            )}
+
+            {/* Upload New Image Button */}
+            <label className="flex items-center justify-center gap-2 px-4 py-3 border border-border rounded-lg bg-muted hover:bg-accent cursor-pointer transition">
+              <Upload className="w-5 h-5" />
+              <span>{newImageFile ? "Change Image" : "Upload New Image"}</span>
               <input
                 type="file"
                 accept="image/jpeg,image/jpg,image/png,image/webp,image/gif"
@@ -171,38 +237,23 @@ export default function AddProjectPage() {
                 className="hidden"
               />
             </label>
-          ) : (
-            <div className="relative w-full h-64 rounded-lg overflow-hidden border border-border">
-              <img
-                src={imagePreview}
-                alt="Preview"
-                className="w-full h-full object-cover"
-              />
-              <button
-                type="button"
-                onClick={clearImage}
-                className="absolute top-2 right-2 p-2 rounded-lg bg-red-500 hover:bg-red-600 transition text-white"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-          )}
+          </div>
         </div>
 
         {/* Submit Button */}
         <div className="flex gap-3">
           <button
             type="submit"
-            disabled={loading}
+            disabled={saving}
             className="flex-1 px-6 py-3 rounded-lg bg-gradient-to-r from-violet-500 to-purple-600 hover:from-violet-600 hover:to-purple-700 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 font-medium text-white"
           >
-            {loading ? (
+            {saving ? (
               <>
                 <Loader2 className="w-5 h-5 animate-spin" />
-                Creating Project...
+                Saving Changes...
               </>
             ) : (
-              "Create Project"
+              "Save Changes"
             )}
           </button>
           <Link
