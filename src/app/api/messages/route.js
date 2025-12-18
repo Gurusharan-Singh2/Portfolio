@@ -2,7 +2,37 @@
 import { NextResponse } from "next/server";
 import { connectDB } from "@/lib/mongo";
 import Message from "@/models/Message";
+import mongoose from "mongoose";
 import { verifyToken } from "@/lib/auth";
+
+export async function POST(req) {
+  await connectDB();
+  const token = req.headers.get("authorization")?.split(" ")[1];
+  const decoded = verifyToken(token);
+  if (!decoded) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  const { text, recipientId: rawRecipientId } = await req.json();
+  const recipientId = rawRecipientId?.replace(/^"|"$/g, '');
+
+  if (!text || !recipientId) return NextResponse.json({ error: "Missing fields" }, { status: 400 });
+
+  let senderObjId, recipientObjId;
+  try {
+    senderObjId = new mongoose.Types.ObjectId(decoded.id);
+    recipientObjId = new mongoose.Types.ObjectId(recipientId);
+  } catch {
+    return NextResponse.json({ error: "Invalid senderId or recipientId" }, { status: 400 });
+  }
+
+  const message = await Message.create({
+    senderId: senderObjId,
+    recipientId: recipientObjId,
+    senderEmail: decoded.email,
+    text,
+  });
+
+  return NextResponse.json(message);
+}
 
 export async function GET(req) {
   await connectDB();
@@ -11,12 +41,29 @@ export async function GET(req) {
   if (!decoded) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const url = new URL(req.url);
-  const userId = url.searchParams.get("userId");
+  let userId = url.searchParams.get("userId");
+  
+  // Sanitize userId if it has quotes
+  if (userId) {
+      userId = userId.replace(/^"|"$/g, '');
+  }
+
+  if (!userId) {
+      return NextResponse.json([]);
+  }
+
+  let decodedObjId, userObjId;
+  try {
+    decodedObjId = new mongoose.Types.ObjectId(decoded.id);
+    userObjId = new mongoose.Types.ObjectId(userId);
+  } catch {
+    return NextResponse.json([]);
+  }
 
   const messages = await Message.find({
     $or: [
-      { senderId: decoded.id, recipientId: userId },
-      { senderId: userId, recipientId: decoded.id },
+      { senderId: decodedObjId, recipientId: userObjId },
+      { senderId: userObjId, recipientId: decodedObjId },
     ],
   }).sort({ timestamp: 1 });
 

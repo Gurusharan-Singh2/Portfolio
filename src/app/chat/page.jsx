@@ -4,13 +4,20 @@ import { io } from "socket.io-client";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import axios from "axios";
 import { useRouter } from "next/navigation";
-import { Send } from "lucide-react";
+import { Send, User, Loader2 } from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { cn } from "@/lib/utils";
 
 export default function ChatPage() {
   const [newMsg, setNewMsg] = useState("");
   const [token, setToken] = useState(null);
   const [userId, setUserId] = useState(null);
   const [isTyping, setIsTyping] = useState(false);
+  const [isAdminOnline, setIsAdminOnline] = useState(false);
 
   const router = useRouter();
   const socketRef = useRef(null);
@@ -18,12 +25,11 @@ export default function ChatPage() {
   const lastTypingEmitRef = useRef(0);
   const messagesEndRef = useRef(null);
 
-  const SOCKET_URL = process.env.NEXT_PUBLIC_SOCKET_URL;
-  const ADMIN_USER_ID = process.env.NEXT_PUBLIC_ADMIN_ID;
+  const SOCKET_URL = (process.env.NEXT_PUBLIC_SOCKET_URL || "http://localhost:4000").replace(/\/$/, "");
+  const ADMIN_USER_ID = process.env.NEXT_PUBLIC_ADMIN_ID || "6940e8fb7e042f29dcf61df0";
 
   const queryClient = useQueryClient();
 
-  // Load token from localStorage
   useEffect(() => {
     if (typeof window !== "undefined") {
       const stored = localStorage.getItem("token");
@@ -32,7 +38,6 @@ export default function ChatPage() {
     }
   }, [router]);
 
-  // Decode token to get userId
   useEffect(() => {
     if (!token) return;
     try {
@@ -43,7 +48,6 @@ export default function ChatPage() {
     }
   }, [token, router]);
 
-  // Fetch messages history
   const { data: messages = [], isLoading: isHistoryLoading } = useQuery({
     queryKey: ["messages", ADMIN_USER_ID],
     queryFn: async () => {
@@ -55,226 +59,242 @@ export default function ChatPage() {
     enabled: !!token,
   });
 
-  // Setup socket
   useEffect(() => {
     if (!token) return;
-    if (!socketRef.current) {
-      socketRef.current = io(SOCKET_URL, { query: { token } });
+    
+    // Strict guard: don't create new socket if one already exists and is connected
+    if (socketRef.current?.connected) {
+      return;
     }
 
+    // Disconnect any existing socket before creating a new one
+    if (socketRef.current) {
+      socketRef.current.disconnect();
+      socketRef.current = null;
+    }
+
+    socketRef.current = io(SOCKET_URL, { 
+        query: { token },
+        transports: ["websocket"],
+        reconnectionAttempts: 5
+    });
+    
     socketRef.current.on("connect", () => {
       console.log("✅ Connected to socket:", socketRef.current.id);
     });
+
     socketRef.current.on("connect_error", (err) => {
-      console.error("❌ Socket error:", err.message);
+        console.error("❌ Socket connection error:", err);
     });
 
-  const handlePrivateMessage = (msg) => {
-  const adminStr = String(ADMIN_USER_ID);
-  if ([String(msg.senderId), String(msg.recipientId)].includes(adminStr)) {
-    queryClient.setQueryData(["messages", ADMIN_USER_ID], (prev = []) => {
-      if (!prev) return [msg];
-
-      // If server echoes back with clientId → replace optimistic one
-      if (msg.clientId) {
-        return prev.map((m) => (m._id === msg.clientId ? msg : m));
-      }
-
-      // Otherwise: replace any "pending" optimistic messages with same text + sender
-      let replaced = false;
-      const updated = prev.map((m) => {
-        if (
-          m.pending &&
-          m.text === msg.text &&
-          m.senderId === msg.senderId
-        ) {
-          replaced = true;
-          return msg; // replace optimistic with real one
+    socketRef.current.on("userStatus", ({ userId, status }) => {
+        if (String(userId) === String(ADMIN_USER_ID)) {
+            setIsAdminOnline(status === "online");
         }
-        return m;
-      });
-
-      if (replaced) return updated;
-
-      // If not replaced and not already exists, just add
-      const exists = prev.some(
-        (m) => m._id === msg._id || (m.text === msg.text && m.senderId === msg.senderId)
-      );
-      return exists ? prev : [...prev, msg];
     });
-  }
-};
 
+    socketRef.current.on("typing", ({ senderId }) => {
+        if (String(senderId) === String(ADMIN_USER_ID)) {
+            setIsTyping(true);
+        }
+    });
 
-    const handleTyping = (payload) => {
-      if (payload?.senderId === ADMIN_USER_ID) {
-        setIsTyping(true);
-        if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
-        typingTimeoutRef.current = setTimeout(() => setIsTyping(false), 1200);
+    socketRef.current.on("stopTyping", ({ senderId }) => {
+        if (String(senderId) === String(ADMIN_USER_ID)) {
+            setIsTyping(false);
+        }
+    });
+
+    // Listen for chat history
+    socketRef.current.on("chatHistory", (history) => {
+      if (history && Array.isArray(history)) {
+        queryClient.setQueryData(["messages", ADMIN_USER_ID], history);
+      }
+    });
+
+    const handlePrivateMessage = (msg) => {
+      const adminStr = String(ADMIN_USER_ID);
+      const msgSenderStr = String(msg.senderId);
+      const msgRecipientStr = String(msg.recipientId);
+      
+      // Check if message involves admin
+      if (msgSenderStr === adminStr || msgRecipientStr === adminStr) {
+        queryClient.setQueryData(["messages", ADMIN_USER_ID], (prev = []) => {
+          if (!prev) return [msg];
+
+          // If this is a confirmed version of an optimistic message, try to replace by clientId
+          // BUT only if that optimistic message actually exists in our UI
+          if (msg.clientId) {
+            const optimisticMsgIndex = prev.findIndex((m) => String(m._id) === String(msg.clientId));
+            if (optimisticMsgIndex !== -1) {
+              return prev.map((m) =>
+                String(m._id) === String(msg.clientId) ? msg : m
+              );
+            }
+          }
+
+          // Deduplication based on _id
+          const exists = prev.some((m) => String(m._id) === String(msg._id));
+          if (exists) {
+              return prev;
+          }
+          return [...prev, msg];
+        });
+        
+        if (String(msg.senderId) === String(ADMIN_USER_ID)) {
+            setIsTyping(false);
+        }
       }
     };
-
+    
     socketRef.current.on("privateMessage", handlePrivateMessage);
-    socketRef.current.on("typing", handleTyping);
 
     return () => {
-      socketRef.current?.off("privateMessage", handlePrivateMessage);
-      socketRef.current?.off("typing", handleTyping);
-      socketRef.current?.disconnect();
+      console.log("🧹 Cleanup: Disconnecting socket");
+      const socket = socketRef.current;
+      if (socket) {
+        socket.off("connect");
+        socket.off("connect_error");
+        socket.off("userStatus");
+        socket.off("typing");
+        socket.off("stopTyping");
+        socket.off("chatHistory");
+        socket.off("privateMessage", handlePrivateMessage);
+        if (socket.connected) {
+          socket.disconnect();
+        }
+      }
       socketRef.current = null;
     };
-  }, [token, ADMIN_USER_ID, SOCKET_URL, queryClient]);
+  }, [token, ADMIN_USER_ID, SOCKET_URL]); // Removed queryClient from dependencies
 
-  // Auto-scroll on new messages
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, isTyping]);
 
-  // Send message
-  const sendMessage = () => {
-    const text = newMsg.trim();
-    if (!text || !socketRef.current) return;
+  const handleTyping = (e) => {
+      setNewMsg(e.target.value);
+      
+      if (!socketRef.current || !ADMIN_USER_ID) return;
 
-    const clientId = `local-${Date.now()}`;
-    const optimistic = {
-      _id: clientId,
-      senderId: userId,
-      recipientId: ADMIN_USER_ID,
-      text,
-      timestamp: new Date().toISOString(),
-      pending: true,
-    };
+      socketRef.current.emit("typing", { recipientId: ADMIN_USER_ID });
 
-    // Optimistic UI
-    queryClient.setQueryData(["messages", ADMIN_USER_ID], (prev = []) => [
-      ...prev,
-      optimistic,
-    ]);
+      if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
 
-    // Send to server with clientId
-    socketRef.current.emit("privateMessage", {
-      senderId: userId,
-      recipientId: ADMIN_USER_ID,
-      text,
-      clientId,
-    });
-
-    setNewMsg("");
+      typingTimeoutRef.current = setTimeout(() => {
+          socketRef.current.emit("stopTyping", { recipientId: ADMIN_USER_ID });
+      }, 2000);
   };
 
-  // Handle typing events
-  const handleChange = (e) => {
-    setNewMsg(e.target.value);
-    const now = Date.now();
-    if (now - lastTypingEmitRef.current > 500) {
-      socketRef.current?.emit("typing", {
-        recipientId: ADMIN_USER_ID,
+  const sendMessage = async () => {
+    const text = newMsg.trim();
+    if (!text) return;
+
+    // Stop typing immediately
+    if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+    if (socketRef.current) socketRef.current.emit("stopTyping", { recipientId: ADMIN_USER_ID });
+
+    const clientId = Date.now().toString();
+
+    // Optimistic Update
+    const tempMsg = {
+        _id: clientId,
+        clientId,
+        text,
         senderId: userId,
+        recipientId: ADMIN_USER_ID,
+        timestamp: new Date().toISOString(),
+        pending: true,
+    };
+
+    queryClient.setQueryData(["messages", ADMIN_USER_ID], (prev = []) => [...prev, tempMsg]);
+    setNewMsg("");
+
+    // Send via socket server so both user and admin receive in real-time (server also saves to DB)
+    if (socketRef.current && socketRef.current.connected) {
+      socketRef.current.emit("privateMessage", {
+        recipientId: ADMIN_USER_ID,
+        text,
+        clientId,
       });
-      lastTypingEmitRef.current = now;
+    } else {
+      console.error("❌ Socket not connected. Cannot send message. Socket state:", {
+        exists: !!socketRef.current,
+        connected: socketRef.current?.connected
+      });
     }
   };
 
   return (
-    <div className="min-h-screen w-full flex items-center justify-center bg-gradient-to-br from-violet-700 to-purple-700 p-4">
-      <div className="w-full max-w-5xl h-[90vh] bg-white/10 backdrop-blur-lg rounded-2xl flex overflow-hidden shadow-2xl border border-white/20">
-        {/* Sidebar */}
-        <aside className="hidden md:flex w-72 flex-col bg-white/5 p-5 border-r border-white/20">
-          <div className="text-white font-semibold mb-4">Support Chat</div>
-          <div className="text-xs text-white/70">Gurusharan Singh • Online</div>
-        </aside>
+    <div className="flex min-h-screen items-center justify-center p-4 bg-gray-50 dark:bg-neutral-900">
+      <Card className="w-full max-w-4xl h-[85vh] shadow-xl flex flex-col border-none md:border">
+        <CardHeader className="border-b px-6 py-4 flex flex-row items-center gap-4 bg-white dark:bg-card rounded-t-xl">
+           <div className="relative">
+               <Avatar className="h-10 w-10 border">
+                  <AvatarFallback>AD</AvatarFallback>
+               </Avatar>
+               {isAdminOnline && (
+                   <span className="absolute bottom-0 right-0 h-3 w-3 rounded-full bg-green-500 border-2 border-white"></span>
+               )}
+           </div>
+           <div>
+               <CardTitle className="text-lg">Support Chat</CardTitle>
+               <div className="flex flex-col">
+                   <p className="text-xs text-muted-foreground">Admin {isAdminOnline ? "• Online" : "• Offline"}</p>
+                   {isTyping && <p className="text-xs text-primary animate-pulse">Typing...</p>}
+               </div>
+           </div>
+        </CardHeader>
+        
+        <CardContent className="p-0 flex-1 overflow-hidden relative bg-gray-50/50 dark:bg-neutral-950/50">
+            <ScrollArea className="h-full w-full p-4">
+                 {isHistoryLoading && (
+                    <div className="flex justify-center p-4"><Loader2 className="animate-spin text-muted-foreground"/></div>
+                 )}
+                 <div className="flex flex-col gap-4 pb-4">
+                    {messages.map((m) => {
+                        const isOwn = String(m.senderId) === String(userId);
+                        return (
+                            <div key={m._id} className={cn("flex w-full", isOwn ? "justify-end" : "justify-start")}>
+                                <div className={cn(
+                                    "px-4 py-2 rounded-2xl max-w-[80%] text-sm shadow-sm",
+                                    isOwn ? "bg-primary text-primary-foreground rounded-tr-sm" : "bg-white dark:bg-neutral-800 border rounded-tl-sm"
+                                )}>
+                                    <p>{m.text}</p>
+                                    <p className={cn("text-[10px] mt-1 text-right opacity-70", isOwn ? "text-primary-foreground/70" : "text-muted-foreground")}>
+                                         {new Date(m.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                                    </p>
+                                </div>
+                            </div>
+                        )
+                    })}
+                    {isTyping && (
+                         <div className="flex justify-start">
+                             <div className="bg-white dark:bg-neutral-800 border rounded-lg px-3 py-2 text-sm shadow-sm text-muted-foreground flex gap-1">
+                                 <span className="animate-bounce">.</span>
+                                 <span className="animate-bounce delay-100">.</span>
+                                 <span className="animate-bounce delay-200">.</span>
+                             </div>
+                         </div>
+                    )}
+                    <div ref={messagesEndRef} />
+                 </div>
+            </ScrollArea>
+        </CardContent>
 
-        {/* Chat Area */}
-        <main className="flex-1 flex flex-col">
-          {/* Header */}
-          <div className="px-4 py-3 border-b border-white/20 bg-white/5 backdrop-blur-md flex items-center justify-between">
-            <h2 className="text-white font-semibold">Chat Support</h2>
-          </div>
-
-          {/* Messages */}
-          <div className="flex-1 p-4 overflow-y-auto space-y-4">
-            {isHistoryLoading && (
-              <div className="text-white/80">Loading messages...</div>
-            )}
-
-            {messages.map((m) => {
-              const isOwn = m.senderId === userId;
-              return (
-                <div
-                  key={m._id}
-                  className={`flex items-end gap-2 ${
-                    isOwn ? "justify-end" : "justify-start"
-                  }`}
-                >
-                  {!isOwn && (
-                    <div className="h-8 w-8 rounded-full bg-white/20 text-white flex items-center justify-center text-xs">
-                      GS
-                    </div>
-                  )}
-                  <div
-                    className={`px-4 py-2 rounded-2xl max-w-[75%] text-sm ${
-                      isOwn
-                        ? "bg-gradient-to-r from-violet-500 to-purple-600 text-white"
-                        : "bg-white/20 text-white border border-white/10"
-                    }`}
-                  >
-                    <div>{m.text}</div>
-                    <div className="text-[10px] opacity-70 mt-1 text-right">
-                      {m.pending
-                        ? "sending..."
-                        : new Date(m.timestamp || Date.now()).toLocaleTimeString(
-                            [],
-                            {
-                              hour: "2-digit",
-                              minute: "2-digit",
-                            }
-                          )}
-                    </div>
-                  </div>
-                  {isOwn && (
-                    <div className="h-8 w-8 rounded-full bg-violet-600 text-white flex items-center justify-center text-xs">
-                      You
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-
-            {isTyping && (
-              <div className="flex items-center gap-2 text-xs text-white/70">
-                <div className="h-8 w-8 rounded-full bg-white/20 flex items-center justify-center text-xs">
-                  GS
-                </div>
-                <div className="px-4 py-2 rounded-2xl bg-white/20 flex items-center gap-1">
-                  <span className="w-2 h-2 bg-white rounded-full animate-bounce" />
-                  <span className="w-2 h-2 bg-white rounded-full animate-bounce delay-200" />
-                  <span className="w-2 h-2 bg-white rounded-full animate-bounce delay-400" />
-                </div>
-              </div>
-            )}
-
-            <div ref={messagesEndRef} />
-          </div>
-
-          {/* Input */}
-          <div className="p-3 border-t border-white/20 bg-white/5 backdrop-blur-md flex items-center gap-3 sticky bottom-0">
-            <input
-              type="text"
-              value={newMsg}
-              onChange={handleChange}
-              placeholder="Type your message..."
-              className="flex-1 p-3 rounded-full border border-white/20 bg-white/10 text-white placeholder-white/70 focus:outline-none focus:ring-2 focus:ring-violet-400"
-              onKeyDown={(e) => e.key === "Enter" && sendMessage()}
-            />
-            <button
-              onClick={sendMessage}
-              className="p-3 bg-gradient-to-r from-violet-500 to-purple-600 text-white rounded-full hover:from-violet-600 hover:to-purple-700 transition flex items-center justify-center"
-            >
-              <Send size={18} />
-            </button>
-          </div>
-        </main>
-      </div>
+        <CardFooter className="p-4 border-t bg-white dark:bg-card rounded-b-xl gap-2">
+             <Input 
+                value={newMsg}
+                onChange={handleTyping}
+                onKeyDown={(e) => e.key === "Enter" && sendMessage()}
+                placeholder="Type a message..."
+                className="flex-1"
+             />
+             <Button onClick={sendMessage} size="icon" className="rounded-full h-10 w-10">
+                 <Send className="h-4 w-4" />
+             </Button>
+        </CardFooter>
+      </Card>
     </div>
   );
 }

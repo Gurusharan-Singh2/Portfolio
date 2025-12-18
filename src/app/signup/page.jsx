@@ -1,93 +1,109 @@
 "use client";
+
 import { useState } from "react";
-import { useMutation } from "@tanstack/react-query";
-import axios from "axios";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { AlertCircle, Loader2 } from "lucide-react";
 
 export default function SignupPage() {
+  const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [showPassword, setShowPassword] = useState(false);
-  const router = useRouter();
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
 
-  const signupMutation = useMutation({
-    mutationFn: (data) => axios.post("/api/auth/signup", data),
-    onSuccess: (res) => {
-      localStorage.setItem("token", res.data.token);
-      router.push("/chat");
-    },
-    onError: (err) => {
-      alert(err.response?.data?.error || "Signup failed. Please try again.");
-    },
-  });
+  const handleSignup = async (e) => {
+    e.preventDefault();
+    setError("");
+    setLoading(true);
 
-  const isPending = Boolean(signupMutation.isPending || signupMutation.isLoading);
+    try {
+      const res = await fetch("/api/auth/signup", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password }),
+      });
 
-  const handleSignup = () => {
-    if (!email || !password) {
-      alert("Please enter both email and password");
-      return;
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.error || "Signup failed");
+      }
+
+      localStorage.setItem("token", data.token);
+      localStorage.setItem("user", JSON.stringify(data.user));
+      router.push("/admin");
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
     }
-    signupMutation.mutate({ email, password });
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center -mt-20 sm:mt-0  p-4 sm:p-4 w-full">
-      <div className="w-full bg-gradient-to-br from-violet-600 via-purple-600 to-indigo-600 max-w-[380px] bg-white/10 backdrop-blur-xl rounded-2xl shadow-2xl p-6 sm:p-8 border border-white/20 flex flex-col gap-6 mx-auto">
-        <h1 className="text-2xl sm:text-3xl font-bold text-center text-white">
-          Create Account ✨
-        </h1>
-        <p className="text-center text-violet-200 text-sm sm:text-base">
-          Join to start chatting
-        </p>
-
-        <input
-          className="w-full p-3 rounded-xl border border-white/20 bg-white/10 text-white placeholder-violet-200 focus:outline-none focus:ring-2 focus:ring-violet-400 focus:border-transparent transition-all duration-300 text-sm sm:text-base"
-          type="email"
-          placeholder="Email Address"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-        />
-
-        <div className="relative">
-          <input
-            className="w-full p-3 rounded-xl border border-white/20 bg-white/10 text-white placeholder-violet-200 focus:outline-none focus:ring-2 focus:ring-violet-400 focus:border-transparent transition-all duration-300 text-sm sm:text-base pr-12"
-            type={showPassword ? "text" : "password"}
-            placeholder="Password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && handleSignup()}
-          />
-          <button
-            type="button"
-            onClick={() => setShowPassword((s) => !s)}
-            className="absolute right-3 top-1/2 -translate-y-1/2 text-violet-200 hover:text-white text-xs"
-          >
-            {showPassword ? "Hide" : "Show"}
-          </button>
-        </div>
-
-        <button
-          className={`${"w-full py-3 rounded-xl font-semibold text-base sm:text-lg text-white shadow-lg transform transition-all duration-300"} ${
-            isPending
-              ? "bg-gray-400 cursor-not-allowed"
-              : "bg-gradient-to-r from-violet-500 to-purple-600 hover:from-violet-600 hover:to-purple-700 active:scale-95"
-          }`}
-          onClick={handleSignup}
-          disabled={isPending}
-        >
-          {isPending ? "Signing up..." : "Signup"}
-        </button>
-
-        <div className="flex flex-col sm:flex-row sm:justify-between items-center gap-3 sm:gap-0 mt-4 text-sm">
-          <button
-            onClick={() => router.push("/login")}
-            className="text-violet-200 hover:text-white transition-colors"
-          >
-            Already have an account?
-          </button>
-        </div>
-      </div>
+    <div className="flex min-h-screen items-center justify-center bg-gray-100 p-4 dark:bg-neutral-900">
+      <Card className="w-full max-w-md shadow-lg rounded-2xl border-none">
+        <CardHeader className="space-y-1 text-center">
+          <CardTitle className="text-3xl font-bold tracking-tight">Create an account</CardTitle>
+          <CardDescription>
+            Enter your email below to create your account
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={handleSignup} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="email">Email</Label>
+              <Input
+                id="email"
+                type="email"
+                placeholder="m@example.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+                className="rounded-xl border-gray-300 dark:border-gray-700"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="password">Password</Label>
+              <Input
+                id="password"
+                type="password"
+                placeholder="••••••••"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                className="rounded-xl border-gray-300 dark:border-gray-700"
+              />
+            </div>
+            {error && (
+              <div className="flex items-center gap-2 p-3 text-sm text-red-600 bg-red-50 rounded-lg dark:bg-red-900/10 dark:text-red-400">
+                <AlertCircle className="h-4 w-4" />
+                <p>{error}</p>
+              </div>
+            )}
+            <Button
+              type="submit"
+              className="w-full rounded-xl bg-black text-white hover:bg-neutral-800 dark:bg-white dark:text-black dark:hover:bg-gray-200"
+              disabled={loading}
+            >
+              {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Sign Up
+            </Button>
+          </form>
+        </CardContent>
+        <CardFooter className="flex flex-col gap-2 text-center">
+          <div className="text-sm text-muted-foreground">
+            Already have an account?{" "}
+            <Link href="/login" className="font-medium text-blue-600 hover:text-blue-500 dark:text-blue-400">
+              Sign in
+            </Link>
+          </div>
+        </CardFooter>
+      </Card>
     </div>
   );
 }

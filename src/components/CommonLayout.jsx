@@ -17,6 +17,12 @@ const CommonLayout = ({ children }) => {
     }
   }, []);
 
+  const isAuthOrAdmin = pathname.startsWith('/admin') || pathname.startsWith('/login') || pathname.startsWith('/signup');
+
+  if (isAuthOrAdmin) {
+    return <main className="w-full min-h-screen">{children}</main>;
+  }
+
   return (
     <AnimatePresence mode="wait">
       <div

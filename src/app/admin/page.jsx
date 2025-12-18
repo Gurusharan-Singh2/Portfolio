@@ -1,64 +1,94 @@
 "use client";
-import Link from "next/link";
 
-export default function AdminDashboard() {
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Users, CreditCard, Activity, DollarSign } from "lucide-react";
+
+export default function AdminPage() {
   return (
-    <div className="text-white">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold">Admin Dashboard</h1>
-          <p className="text-sm text-violet-200 mt-1">Overview and quick actions</p>
-        </div>
-        <Link
-          href="/admin/chat"
-          className="text-sm px-3 py-2 rounded-lg border border-white/20 bg-gradient-to-r from-violet-500 to-purple-600 hover:from-violet-600 hover:to-purple-700 transition"
-        >
-          Open Chat
-        </Link>
+    <div className="space-y-4">
+      <h2 className="text-3xl font-bold tracking-tight">Dashboard</h2>
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Total Revenue</CardTitle>
+            <DollarSign className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">$45,231.89</div>
+            <p className="text-xs text-muted-foreground">+20.1% from last month</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Subscriptions</CardTitle>
+            <Users className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">+2350</div>
+            <p className="text-xs text-muted-foreground">+180.1% from last month</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Sales</CardTitle>
+            <CreditCard className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">+12,234</div>
+            <p className="text-xs text-muted-foreground">+19% from last month</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Active Now</CardTitle>
+            <Activity className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">+573</div>
+            <p className="text-xs text-muted-foreground">+201 since last hour</p>
+          </CardContent>
+        </Card>
       </div>
-
-      {/* KPI Cards */}
-      <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="p-4 rounded-xl border border-white/20 bg-white/10 backdrop-blur">
-          <div className="text-xs uppercase tracking-wide text-violet-200">Projects</div>
-          <div className="text-2xl font-semibold mt-1">—</div>
-        </div>
-        <div className="p-4 rounded-xl border border-white/20 bg-white/10 backdrop-blur">
-          <div className="text-xs uppercase tracking-wide text-violet-200">Users</div>
-          <div className="text-2xl font-semibold mt-1">—</div>
-        </div>
-        <div className="p-4 rounded-xl border border-white/20 bg-white/10 backdrop-blur">
-          <div className="text-xs uppercase tracking-wide text-violet-200">Messages</div>
-          <div className="text-2xl font-semibold mt-1">—</div>
-        </div>
-        <div className="p-4 rounded-xl border border-white/20 bg-white/10 backdrop-blur">
-          <div className="text-xs uppercase tracking-wide text-violet-200">Pending</div>
-          <div className="text-2xl font-semibold mt-1">—</div>
-        </div>
-      </div>
-
-      {/* Two-column content */}
-      <div className="mt-6 grid grid-cols-1 lg:grid-cols-3 gap-4">
-        {/* Quick Actions */}
-        <div className="lg:col-span-1 space-y-3">
-          <div className="p-4 rounded-xl border border-white/20 bg-white/10">
-            <h2 className="font-semibold mb-3">Quick Actions</h2>
-            <div className="grid grid-cols-1 gap-2">
-              <Link href="/admin/projects/add" className="px-3 py-2 rounded-lg border border-white/10 bg-white/10 hover:bg-white/20 transition">Add Project</Link>
-              <Link href="/admin/projects" className="px-3 py-2 rounded-lg border border-white/10 bg-white/10 hover:bg-white/20 transition">Manage Projects</Link>
-              <Link href="/admin/chat" className="px-3 py-2 rounded-lg border border-white/10 bg-white/10 hover:bg-white/20 transition">Respond to Messages</Link>
-            </div>
-          </div>
-        </div>
-
-        {/* Recent Activity */}
-        <div className="lg:col-span-2 p-4 rounded-xl border border-white/20 bg-white/10">
-          <h2 className="font-semibold mb-3">Recent Activity</h2>
-          <ul className="space-y-2 text-sm text-violet-100/90">
-            <li className="px-3 py-2 rounded-lg border border-white/10 bg-white/5">No recent items yet. Activity will appear here.</li>
-          </ul>
-        </div>
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
+        <Card className="col-span-4">
+            <CardHeader>
+                <CardTitle>Recent Activity</CardTitle>
+            </CardHeader>
+            <CardContent>
+                <div className="space-y-8">
+                    {/* Placeholder for recent activity list */}
+                    <div className="flex items-center">
+                        <div className="ml-4 space-y-1">
+                            <p className="text-sm font-medium leading-none">Olivia Martin</p>
+                            <p className="text-sm text-muted-foreground">olivia.martin@email.com</p>
+                        </div>
+                        <div className="ml-auto font-medium">+$1,999.00</div>
+                    </div>
+                     <div className="flex items-center">
+                        <div className="ml-4 space-y-1">
+                            <p className="text-sm font-medium leading-none">Jackson Lee</p>
+                            <p className="text-sm text-muted-foreground">jackson.lee@email.com</p>
+                        </div>
+                        <div className="ml-auto font-medium">+$39.00</div>
+                    </div>
+                     <div className="flex items-center">
+                        <div className="ml-4 space-y-1">
+                            <p className="text-sm font-medium leading-none">Isabella Nguyen</p>
+                            <p className="text-sm text-muted-foreground">isabella.nguyen@email.com</p>
+                        </div>
+                         <div className="ml-auto font-medium">+$299.00</div>
+                    </div>
+                </div>
+            </CardContent>
+        </Card>
+         <Card className="col-span-3">
+             <CardHeader>
+                <CardTitle>Users</CardTitle>
+                 <CardContent>
+                   <p>User stats graph here...</p>
+                 </CardContent>
+            </CardHeader>
+        </Card>
       </div>
     </div>
   );

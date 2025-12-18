@@ -1,332 +1,370 @@
 "use client";
-import { useEffect, useRef, useState } from "react";
+
+import { useEffect, useState, useRef } from "react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Send, User, ArrowLeft, Loader2 } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { io } from "socket.io-client";
-import axios from "axios";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Send, X } from "lucide-react";
 
-export default function AdminChatPage() {
-  const [newMsg, setNewMsg] = useState("");
-  const [token, setToken] = useState(null);
-  const [adminId, setAdminId] = useState(null);
-  const [activeUser, setActiveUser] = useState(null);
+export default function ChatPage() {
+  const [users, setUsers] = useState([]);
+  const [selectedUser, setSelectedUser] = useState(null);
+  const [messages, setMessages] = useState([]);
+  const [newMessage, setNewMessage] = useState("");
+  const [currentUser, setCurrentUser] = useState(null);
+  const [socket, setSocket] = useState(null);
   const [isTyping, setIsTyping] = useState(false);
-  const [selectMode, setSelectMode] = useState(false);
-  const [selectedIds, setSelectedIds] = useState(new Set());
-  const [drawerOpen, setDrawerOpen] = useState(false);
-
+  const [onlineUsers, setOnlineUsers] = useState(new Set());
+  
+  const scrollRef = useRef(null);
   const socketRef = useRef(null);
-  const messagesEndRef = useRef(null);
+  const selectedUserRef = useRef(null);
   const typingTimeoutRef = useRef(null);
 
-  const SOCKET_URL = process.env.NEXT_PUBLIC_SOCKET_URL;
-  const queryClient = useQueryClient();
+  const SOCKET_URL = (process.env.NEXT_PUBLIC_SOCKET_URL || "http://localhost:4000").replace(/\/$/, "");
 
-  // Load token and admin ID
+  // Initialize currentUser from token
   useEffect(() => {
-    const stored = localStorage.getItem("token");
-    if (!stored) return;
-    setToken(stored);
-    try {
-      const payload = JSON.parse(atob(stored.split(".")[1] || ""));
-      if (payload?.isAdmin) setAdminId(payload.id);
-    } catch (error) {
-      console.error("Invalid token", error);
+    const token = localStorage.getItem("token");
+    if (token) {
+      try {
+        const payload = JSON.parse(atob(token.split(".")[1] || ""));
+        setCurrentUser({ id: payload?.id, email: payload?.email });
+      } catch (error) {
+        console.error("Token decode error:", error);
+      }
     }
   }, []);
 
-  // Fetch users
-  const { data: users = [] } = useQuery({
-    queryKey: ["users"],
-    queryFn: async () => {
-      if (!token) return [];
-      const res = await axios.get("/api/admin/users", {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      return res.data;
-    },
-    enabled: !!token,
-    onSuccess: (data) => {
-      if (!activeUser && data.length) setActiveUser(data[0]);
-    },
-  });
-
-  // Fetch messages for active user
-  const { data: messages = [], isLoading: isHistoryLoading } = useQuery({
-    queryKey: ["messages", activeUser?._id],
-    queryFn: async () => {
-      if (!token || !activeUser?._id) return [];
-      const res = await axios.get(`/api/messages?userId=${activeUser._id}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      return res.data;
-    },
-    enabled: !!activeUser?._id && !!token,
-  });
-
-  // Delete selected messages
-  const deleteMutation = useMutation({
-    mutationFn: async (ids) => {
-      await axios.delete("/api/messages", {
-        headers: { Authorization: `Bearer ${token}` },
-        data: { ids },
-      });
-    },
-    onSuccess: (_, ids) => {
-      queryClient.setQueryData(["messages", activeUser?._id], (old = []) =>
-        old.filter((m) => !ids.includes(String(m._id)))
-      );
-      setSelectedIds(new Set());
-      setSelectMode(false);
-    },
-  });
-
-  // Socket setup
+  // Fetch users on mount
   useEffect(() => {
+    fetchUsers();
+  }, []);
+
+  // Setup socket connection
+  useEffect(() => {
+    const token = localStorage.getItem("token");
     if (!token) return;
-    if (!socketRef.current) socketRef.current = io(SOCKET_URL, { query: { token } });
 
-    const onMsg = (m) => {
-      const activeId = activeUser?._id ? String(activeUser._id) : null;
-      if ([m.senderId, m.recipientId].map(String).includes(activeId)) {
-        queryClient.setQueryData(["messages", activeUser?._id], (prev = []) => {
-          const filtered = prev.filter(
-            (msg) =>
-              !(
-                msg._id.startsWith("local-") &&
-                msg.text === m.text &&
-                msg.senderId === m.senderId
-              )
-          );
-          if (filtered.some((msg) => msg._id === m._id)) return filtered;
-          return [...filtered, m];
+    // Strict guard: don't create new socket if one already exists and is connected
+    if (socketRef.current?.connected) {
+      return;
+    }
+
+    // Disconnect any existing socket before creating a new one
+    if (socketRef.current) {
+      socketRef.current.disconnect();
+      socketRef.current = null;
+    }
+
+    const newSocket = io(SOCKET_URL, { 
+        query: { token },
+        transports: ["websocket"],
+        reconnectionAttempts: 5
+    });
+    
+    socketRef.current = newSocket;
+    setSocket(newSocket);
+
+    newSocket.on("connect", () => {
+        console.log("✅ Admin Connected to Socket:", newSocket.id);
+    });
+
+    newSocket.on("connect_error", (err) => {
+        console.error("❌ Socket connection error:", err);
+    });
+
+    newSocket.on("userStatus", ({ userId, status }) => {
+        setOnlineUsers(prev => {
+            const newSet = new Set(prev);
+            if (status === "online") newSet.add(String(userId));
+            else newSet.delete(String(userId));
+            return newSet;
         });
-      }
-    };
+    });
 
-    const onTyping = ({ senderId }) => {
-      if (senderId === activeUser?._id) {
-        setIsTyping(true);
-        if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
-        typingTimeoutRef.current = setTimeout(() => setIsTyping(false), 1200);
-      }
-    };
+    newSocket.on("typing", ({ senderId }) => {
+        if (selectedUserRef.current && String(senderId) === String(selectedUserRef.current._id)) {
+            setIsTyping(true);
+        }
+    });
 
-    socketRef.current.on("privateMessage", onMsg);
-    socketRef.current.on("typing", onTyping);
+    newSocket.on("stopTyping", ({ senderId }) => {
+        if (selectedUserRef.current && String(senderId) === String(selectedUserRef.current._id)) {
+            setIsTyping(false);
+        }
+    });
+
+    // Listen for incoming messages
+    newSocket.on("privateMessage", (msg) => {
+         const currentSelected = selectedUserRef.current;
+         
+         // If we have a selected user, and this message involves them
+         if (currentSelected) {
+             const isRelevant = 
+                (String(msg.senderId) === String(currentSelected._id)) || 
+                (String(msg.recipientId) === String(currentSelected._id));
+             
+             if (isRelevant) {
+                 setMessages(prev => {
+                     if (!prev) return [msg];
+
+                     // If this is a confirmed version of an optimistic message, try to replace by clientId
+                     // BUT only if that optimistic message actually exists in our UI
+                     if (msg.clientId) {
+                       const optimisticMsgIndex = prev.findIndex((m) => String(m._id) === String(msg.clientId));
+                       if (optimisticMsgIndex !== -1) {
+                         return prev.map((m) =>
+                           String(m._id) === String(msg.clientId) ? msg : m
+                         );
+                       }
+                     }
+
+                     // Dedup based on _id
+                     const exists = prev.some(m => String(m._id) === String(msg._id));
+                     if (exists) {
+                       return prev;
+                     }
+                     return [...prev, msg];
+                 });
+                 // Clear typing indicator on message receive
+                 setIsTyping(false);
+             }
+         }
+    });
 
     return () => {
-      socketRef.current?.off("privateMessage", onMsg);
-      socketRef.current?.off("typing", onTyping);
-      socketRef.current?.disconnect();
+      newSocket.off("connect");
+      newSocket.off("connect_error");
+      newSocket.off("userStatus");
+      newSocket.off("typing");
+      newSocket.off("stopTyping");
+      newSocket.off("privateMessage");
+      if (newSocket.connected) {
+        newSocket.disconnect();
+      }
       socketRef.current = null;
     };
-  }, [token, SOCKET_URL, activeUser, queryClient]);
+  }, [SOCKET_URL]);
+
+  // Sync ref with state
+  useEffect(() => {
+      selectedUserRef.current = selectedUser;
+      if (selectedUser) {
+          fetchMessages(selectedUser._id);
+          setIsTyping(false); // Reset typing status on user switch
+      }
+  }, [selectedUser]);
+
+  useEffect(() => {
+    if (scrollRef.current) {
+        scrollRef.current.scrollIntoView({ behavior: "smooth" });
+    }
+  }, [messages, isTyping]);
 
 
-  // Send message
-  const sendMessage = () => {
-    if (!newMsg.trim() || !activeUser?._id) return;
+  const fetchUsers = async () => {
+    const token = localStorage.getItem("token");
+    try {
+        const res = await fetch("/api/users", {
+            headers: { Authorization: `Bearer ${token}` },
+        });
+        if (res.ok) {
+            const data = await res.json();
+            setUsers(data);
+        }
+    } catch (e) { console.error(e); }
+  };
 
-    const localMsg = {
-      _id: `local-${Date.now()}`,
-      senderId: adminId,
-      recipientId: activeUser._id,
-      text: newMsg.trim(),
-      timestamp: new Date().toISOString(),
+  const fetchMessages = async (userId) => {
+    const token = localStorage.getItem("token");
+    try {
+        const res = await fetch(`/api/messages?userId=${userId}`, {
+            headers: { Authorization: `Bearer ${token}` },
+        });
+        if (res.ok) {
+            const data = await res.json();
+            setMessages(data);
+        }
+    } catch (e) { console.error(e); }
+  };
+
+  const handleTyping = (e) => {
+      setNewMessage(e.target.value);
+      
+      if (!socket || !selectedUser) return;
+
+      socket.emit("typing", { recipientId: selectedUser._id });
+
+      if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+
+      typingTimeoutRef.current = setTimeout(() => {
+          socket.emit("stopTyping", { recipientId: selectedUser._id });
+      }, 2000);
+  };
+
+  const handleSendMessage = async (e) => {
+    e.preventDefault();
+    if (!newMessage.trim() || !selectedUser) return;
+
+    const text = newMessage.trim();
+    setNewMessage("");
+    
+    // Stop typing immediately on send
+    if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+    if (socket) socket.emit("stopTyping", { recipientId: selectedUser._id });
+
+    const clientId = Date.now().toString();
+
+    // Optimistic update
+    const tempMsg = {
+        _id: clientId,
+        clientId,
+        text,
+        senderId: currentUser?.id,
+        recipientId: selectedUser._id,
+        timestamp: new Date().toISOString(),
+        pending: true
     };
+    
+    setMessages(prev => [...prev, tempMsg]);
 
-    queryClient.setQueryData(["messages", activeUser?._id], (prev = []) => [...prev, localMsg]);
-    socketRef.current?.emit("privateMessage", { recipientId: activeUser._id, text: newMsg.trim() });
-    setNewMsg("");
-  };
-
-  const toggleSelect = (id) => {
-    setSelectedIds((prev) => {
-      const s = new Set(prev);
-      s.has(id) ? s.delete(id) : s.add(id);
-      return s;
-    });
-  };
-
-  const deleteSelected = () => {
-    if (!selectedIds.size) return;
-    deleteMutation.mutate(Array.from(selectedIds));
+    // Emit via socket for real-time delivery and persistence via chat server
+    if (socket && socket.connected) {
+        socket.emit("privateMessage", {
+            recipientId: selectedUser._id,
+            text,
+            clientId,
+        });
+    }
   };
 
   return (
-    <div className="flex h-screen w-full bg-gradient-to-b from-violet-200 via-purple-200 to-indigo-200 overflow-hidden">
-      {/* Desktop Sidebar */}
-      <aside className="hidden md:flex flex-col w-72 bg-violet-50 rounded-r-2xl shadow-lg overflow-y-auto">
-        <div className="p-4 border-b border-purple-200 font-semibold text-purple-700 text-lg">Users</div>
-        <div className="flex flex-col divide-y divide-purple-200">
-          {users.map((u) => (
-            <button
-              key={u._id}
-              onClick={() => setActiveUser(u)}
-              className={`flex items-center gap-3 p-3 text-left hover:bg-purple-100 transition rounded-lg ${
-                activeUser?._id === u._id ? "bg-purple-200 font-semibold" : ""
-              }`}
+    <div className="flex h-[calc(100vh-6rem)] gap-4">
+      {/* Users List */}
+      <Card className={cn(
+          "flex flex-col w-full md:w-1/3 transition-all", 
+          selectedUser ? "hidden md:flex" : "flex"
+      )}>
+        <CardHeader className="p-4 border-b">
+          <CardTitle className="text-lg">Chats</CardTitle>
+        </CardHeader>
+        <CardContent className="p-0 flex-1 overflow-y-auto">
+          {users.map((user) => (
+            <div
+              key={user._id}
+              onClick={() => setSelectedUser(user)}
+              className={cn(
+                "flex items-center gap-3 p-4 cursor-pointer hover:bg-muted transition border-b last:border-0",
+                selectedUser?._id === user._id && "bg-muted"
+              )}
             >
-              <div className="h-8 w-8 rounded-full bg-purple-400 text-white flex items-center justify-center text-xs">
-                {u.email[0].toUpperCase()}
+              <div className="relative">
+                  <Avatar>
+                     <AvatarFallback><User /></AvatarFallback>
+                  </Avatar>
+                  {onlineUsers.has(String(user._id)) && (
+                      <span className="absolute bottom-0 right-0 h-3 w-3 rounded-full bg-green-500 border-2 border-white"></span>
+                  )}
               </div>
-              <span className="truncate">{u.email}</span>
-            </button>
+              <div className="overflow-hidden">
+                <p className="font-medium truncate">{user.email}</p>
+                <p className="text-xs text-muted-foreground truncate">Click to chat</p>
+              </div>
+            </div>
           ))}
-        </div>
-      </aside>
-
-      {/* Mobile Drawer */}
-      {drawerOpen && (
-        <div className="fixed inset-0 z-50 flex md:hidden">
-          <div className="w-4/5 max-w-xs bg-white h-full shadow-2xl flex flex-col">
-            <div className="flex items-center justify-between border-b p-4">
-              <span className="font-semibold text-lg text-purple-700">Users</span>
-              <button onClick={() => setDrawerOpen(false)}>
-                <X className="w-6 h-6 text-purple-700" />
-              </button>
-            </div>
-            <div className="flex-1 overflow-y-auto divide-y divide-purple-200">
-              {users.map((u) => (
-                <button
-                  key={u._id}
-                  onClick={() => {
-                    setActiveUser(u);
-                    setDrawerOpen(false);
-                  }}
-                  className={`flex items-center gap-3 p-3 text-left w-full hover:bg-purple-100 transition rounded-lg ${
-                    activeUser?._id === u._id ? "bg-purple-200 font-semibold" : ""
-                  }`}
-                >
-                  <div className="h-8 w-8 rounded-full bg-purple-400 text-white flex items-center justify-center text-xs">
-                    {u.email[0].toUpperCase()}
-                  </div>
-                  <span className="truncate">{u.email}</span>
-                </button>
-              ))}
-            </div>
-          </div>
-          <div className="flex-1" onClick={() => setDrawerOpen(false)} />
-        </div>
-      )}
+          {users.length === 0 && (
+              <div className="p-4 text-center text-muted-foreground text-sm">No users found</div>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Chat Area */}
-      <div className="w-[99%] sm:flex-1 flex flex-col h-screen">
-        {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b border-purple-300 bg-violet-300 sticky top-0 z-10">
-          <span className="font-semibold text-purple-800 truncate">
-            {activeUser ? `Chat with ${activeUser.email}` : "Select a user"}
-          </span>
-          <div className="flex items-center gap-2">
-            <button
-              className="md:hidden px-3 py-1 rounded-md bg-purple-200 hover:bg-purple-300"
-              onClick={() => setDrawerOpen(true)}
-            >
-              Users
-            </button>
-            <button
-              onClick={() => {
-                setSelectMode(!selectMode);
-                setSelectedIds(new Set());
-              }}
-              className="px-3 py-1 rounded-md text-sm bg-purple-200 hover:bg-purple-300"
-            >
-              {selectMode ? "Cancel" : "Select"}
-            </button>
-            {selectMode && (
-              <button
-                onClick={deleteSelected}
-                disabled={!selectedIds.size || deleteMutation.isLoading}
-                className={`px-3 py-1 rounded-md text-sm text-white ${
-                  selectedIds.size ? "bg-red-600 hover:bg-red-700" : "bg-red-300 cursor-not-allowed"
-                }`}
+      <Card className={cn(
+          "flex-col flex-1 transition-all",
+          !selectedUser ? "hidden md:flex" : "flex"
+      )}>
+        {selectedUser ? (
+          <>
+            <CardHeader className="p-4 border-b flex flex-row items-center gap-3">
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                className="md:hidden mr-2" 
+                onClick={() => setSelectedUser(null)}
               >
-                Delete ({selectedIds.size})
-              </button>
-            )}
-          </div>
-        </div>
-
-        {/* Messages */}
-        <div className="flex-1 overflow-y-auto p-4 flex flex-col space-y-3">
-          {isHistoryLoading && <div className="text-purple-700 animate-pulse">Loading messages...</div>}
-
-          {messages.map((m) => {
-            const isOwn = String(m.senderId) === String(adminId);
-            return (
-              <div key={m._id} className={`flex items-end gap-2 ${isOwn ? "justify-end" : "justify-start"} flex-wrap`}>
-                {selectMode && (
-                  <input
-                    type="checkbox"
-                    className="mt-auto mb-1"
-                    checked={selectedIds.has(String(m._id))}
-                    onChange={() => toggleSelect(String(m._id))}
-                  />
-                )}
-                {!isOwn && (
-                  <div className="h-8 w-8 rounded-full bg-purple-300 text-purple-700 flex items-center justify-center text-xs">
-                    U
-                  </div>
-                )}
-                <div
-                  className={`px-4 py-2 rounded-2xl text-sm shadow break-words flex-shrink max-w-full sm:max-w-[70%] ${
-                    isOwn
-                      ? "bg-gradient-to-r from-violet-500 to-purple-600 text-white rounded-br-none"
-                      : "bg-purple-100 text-purple-900 rounded-bl-none border border-purple-300"
-                  }`}
-                >
-                  <div>{m.text}</div>
-                  <div className="mt-1 text-[10px] opacity-70 text-right">
-                    {new Date(m.timestamp || Date.now()).toLocaleTimeString([], {
-                      hour: "2-digit",
-                      minute: "2-digit",
-                    })}
-                  </div>
-                </div>
-                {isOwn && (
-                  <div className="h-8 w-8 rounded-full bg-violet-600 text-white flex items-center justify-center text-xs shadow">
-                    You
-                  </div>
-                )}
+                  <ArrowLeft className="h-5 w-5"/>
+              </Button>
+              <div className="relative">
+                  <Avatar className="h-8 w-8">
+                    <AvatarFallback>{selectedUser.email[0].toUpperCase()}</AvatarFallback>
+                  </Avatar>
+                  {onlineUsers.has(String(selectedUser._id)) && (
+                      <span className="absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full bg-green-500 border-2 border-white"></span>
+                  )}
               </div>
-            );
-          })}
-
-          {isTyping && (
-            <div className="flex items-center gap-2 text-sm text-purple-700">
-              <div className="h-8 w-8 rounded-full bg-purple-300 flex items-center justify-center text-xs">U</div>
-              <div className="px-4 py-2 rounded-2xl bg-purple-100 border border-purple-300 flex items-center gap-1">
-                <span className="w-2 h-2 bg-purple-500 rounded-full animate-bounce"></span>
-                <span className="w-2 h-2 bg-purple-500 rounded-full animate-bounce"></span>
-                <span className="w-2 h-2 bg-purple-500 rounded-full animate-bounce"></span>
+              <div className="flex flex-col">
+                  <div className="font-medium truncate">{selectedUser.email}</div>
+                  {isTyping && <div className="text-xs text-primary animate-pulse">Typing...</div>}
               </div>
+            </CardHeader>
+            <CardContent className="flex-1 p-4 overflow-y-auto flex flex-col gap-4 bg-muted/20">
+               {messages.length === 0 ? (
+                   <div className="flex-1 flex items-center justify-center text-muted-foreground">No messages yet</div>
+               ) : (
+                   messages.map((msg) => (
+                    <div
+                      key={msg._id}
+                      className={cn(
+                        "flex w-max max-w-[75%] flex-col gap-2 rounded-lg px-3 py-2 text-sm shadow-sm",
+                        String(msg.senderId) === String(currentUser?.id)
+                          ? "ml-auto bg-primary text-primary-foreground"
+                          : "bg-white dark:bg-zinc-800 border"
+                      )}
+                    >
+                      {msg.text}
+                      <span className={cn("text-[10px] opacity-70 self-end", String(msg.senderId) === String(currentUser?.id) ? "text-primary-foreground/70" : "text-muted-foreground")}>
+                          {new Date(msg.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                      </span>
+                    </div>
+                  ))
+               )}
+               {isTyping && (
+                   <div className="flex justify-start">
+                       <div className="bg-white dark:bg-zinc-800 border rounded-lg px-3 py-2 text-sm shadow-sm text-muted-foreground flex gap-1">
+                           <span className="animate-bounce">.</span>
+                           <span className="animate-bounce delay-100">.</span>
+                           <span className="animate-bounce delay-200">.</span>
+                       </div>
+                   </div>
+               )}
+               <div ref={scrollRef} />
+            </CardContent>
+            <div className="p-4 border-t">
+              <form onSubmit={handleSendMessage} className="flex gap-2">
+                <Input
+                    placeholder="Type a message..." 
+                    value={newMessage} 
+                    onChange={handleTyping}
+                    className="flex-1"
+                />
+                <Button type="submit" size="icon">
+                  <Send className="h-4 w-4" />
+                </Button>
+              </form>
             </div>
-          )}
-
-          <div ref={messagesEndRef} />
-        </div>
-
-        {/* Input area */}
-        <div className="flex p-3 mb-4 pb-4 border-t border-purple-300 bg-purple-50 sticky bottom-0 z-10">
-          <input
-            className="flex-1 p-3 rounded-full border border-purple-300 focus:outline-none focus:ring-2 focus:ring-purple-500 text-purple-800 placeholder-purple-400"
-            placeholder="Type your message..."
-            value={newMsg}
-            onChange={(e) => {
-              setNewMsg(e.target.value);
-              if (activeUser?._id) socketRef.current?.emit("typing", { recipientId: activeUser._id });
-            }}
-            onKeyDown={(e) => e.key === "Enter" && sendMessage()}
-          />
-          <button
-            onClick={sendMessage}
-            className="ml-2 p-3 bg-gradient-to-r from-violet-500 to-purple-600 hover:from-violet-600 hover:to-purple-700 text-white rounded-full transition shadow flex items-center justify-center"
-          >
-            <Send size={18} />
-          </button>
-        </div>
-      </div>
+          </>
+        ) : (
+          <div className="flex-1 flex items-center justify-center text-muted-foreground h-full">
+            <div className="text-center">
+                <p>Select a user to start chatting</p>
+            </div>
+          </div>
+        )}
+      </Card>
     </div>
   );
 }
