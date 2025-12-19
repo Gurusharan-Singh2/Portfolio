@@ -1,6 +1,7 @@
 'use client'
 import React, { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
+import Image from 'next/image';
 import { ExternalLink, Loader2, Globe } from 'lucide-react'
 
 const PortfolioPageComponent = () => {
@@ -111,10 +112,12 @@ const PortfolioPageComponent = () => {
             <div className="h-full rounded-xl overflow-hidden bg-white dark:bg-gray-800 shadow-lg hover:shadow-2xl transition-all duration-300 hover:-translate-y-2">
               {/* Image Container */}
               <div className="relative h-48 sm:h-56 overflow-hidden bg-gray-200 dark:bg-gray-700">
-                <img
+                <Image
                   src={project.imageUrl}
                   alt={project.title}
-                  className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500 ease-out"
+                  fill
+                  unoptimized
+                  className="object-cover group-hover:scale-110 transition-transform duration-500 ease-out"
                 />
                 
                 {/* Hover Overlay */}

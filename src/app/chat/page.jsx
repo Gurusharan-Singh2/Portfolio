@@ -4,7 +4,7 @@ import { io } from "socket.io-client";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import axios from "axios";
 import { useRouter } from "next/navigation";
-import { Send, User, Loader2 } from "lucide-react";
+import { Send, Loader2 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -22,7 +22,7 @@ export default function ChatPage() {
   const router = useRouter();
   const socketRef = useRef(null);
   const typingTimeoutRef = useRef(null);
-  const lastTypingEmitRef = useRef(0);
+
   const messagesEndRef = useRef(null);
 
   const SOCKET_URL = (process.env.NEXT_PUBLIC_SOCKET_URL || "http://localhost:4000").replace(/\/$/, "");
@@ -166,7 +166,7 @@ export default function ChatPage() {
       }
       socketRef.current = null;
     };
-  }, [token, ADMIN_USER_ID, SOCKET_URL]); // Removed queryClient from dependencies
+  }, [token, ADMIN_USER_ID, SOCKET_URL, queryClient]); // Removed queryClient from dependencies
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });

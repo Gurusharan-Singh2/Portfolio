@@ -55,9 +55,7 @@ const AllFeatures = () => {
         <h2 className="text-4xl md:text-5xl font-bold mb-4 text-black dark:text-gray-100">
           Explore My <span className="text-violet-600">Digital Toolkit</span>
         </h2>
-        <p className="text-gray-600 dark:text-gray-400 max-w-2xl mx-auto text-lg">
-          A collection of powerful tools and features I've built to showcase technical capabilities and provide utility.
-        </p>
+          A collection of powerful tools and features I&apos;ve built to showcase technical capabilities and provide utility.
       </motion.div>
 
       <motion.div
