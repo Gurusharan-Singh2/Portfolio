@@ -92,9 +92,10 @@ const ColorGenerator = () => {
         return rgbToHex(rgb);
       case "rgb":
         return `rgb(${rgb.r}, ${rgb.g}, ${rgb.b})`;
-      case "hsl":
+      case "hsl": {
         const hsl = rgbToHsl(rgb);
         return `hsl(${hsl.h}, ${hsl.s}%, ${hsl.l}%)`;
+      }
       default:
         return rgbToHex(rgb);
     }

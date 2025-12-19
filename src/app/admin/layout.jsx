@@ -11,7 +11,6 @@ import {
   Settings,
   LogOut,
   Menu,
-  X as XIcon,
   Folder,
 } from "lucide-react";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
