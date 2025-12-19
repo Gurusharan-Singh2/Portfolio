@@ -8,6 +8,7 @@ import { useRef } from "react";
 import QuoteRotator from "@/components/QuteGenerator";
 import Link from "next/link";
 import Image from "next/image";
+import AllFeatures from "@/features/AllFeatures";
 
 const container = {
   hidden: { opacity: 0 },
@@ -155,6 +156,7 @@ const Homepage = () => {
         </motion.div>
         
       </div>
+      <AllFeatures/>
       <QuoteRotator/>
     </motion.div>
   );
