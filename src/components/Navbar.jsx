@@ -46,9 +46,9 @@ const Navbar = () => {
   ];
 
   const navItems = allNavItems.filter(item => {
-    // Hide items that should only show for admin users
+  
     if (item.adminOnly && !isAdmin) return false;
-    // Hide items that should be hidden for admin users
+    
     if (item.hideForAdmin && isAdmin) return false;
     return true;
   });
@@ -117,7 +117,7 @@ const Navbar = () => {
                   </Link>
                 </motion.div>
               ))}
-              <div className="absolute bottom-10 left-0 w-full flex justify-center">
+              <div className="absolute bottom-10 left-0 w-full flex justify-center items-center">
                 <motion.div variants={listItemVariants}>
                   {isLoggedIn ? (
                     <button
@@ -131,7 +131,8 @@ const Navbar = () => {
                         } catch { /* intentionally empty: logout may fail */ }
                         router.push("/");
                       }}
-                      className="px-8 py-3 rounded-md text-lg font-bold bg-violet-600 text-white hover:bg-violet-700 transition flex items-center gap-2 shadow-lg"
+                      className="px-8 py-3 text-lg font-bold bg-violet-600
+                      rounded-2xl text-white hover:bg-violet-700 transition flex items-center gap-2 shadow-lg"
                     >
                       <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-7 h-7 mr-2">
                         <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6A2.25 2.25 0 005.25 5.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15m3-3l-3-3m3 3H9" />

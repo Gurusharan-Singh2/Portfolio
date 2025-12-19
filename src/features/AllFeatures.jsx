@@ -14,10 +14,10 @@ const features = [
   },
   {
     name: "Color Generator",
-    desc: "Generate stunning color palettes for your next design project instantly.",
+    desc: "Create beautiful solid and gradient color palettes with harmony modes and export options.",
     icon: <FaPalette className="text-4xl" />,
-    href: "/color-generator",
-    color: "from-pink-500 to-rose-600",
+    href: "/features/color-generator",
+    color: "from-purple-500 via-pink-500 to-rose-600",
   },
   {
     name: "More Tools",
@@ -63,7 +63,7 @@ const AllFeatures = () => {
         initial="hidden"
         whileInView="visible"
         viewport={{ once: true }}
-        className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8"
+        className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3  mt-4 gap-8"
       >
         {features.map((feature, index) => (
           <motion.div
@@ -74,7 +74,12 @@ const AllFeatures = () => {
           >
             <Link
               href={feature.disabled ? "#" : feature.href}
-              className={`block h-full p-8 rounded-3xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-zinc-800 shadow-xl hover:shadow-2xl dark:hover:shadow-violet-500/20 dark:hover:border-violet-500/50 transition-all duration-300 overflow-hidden ${
+              className={`block h-full p-8 rounded-3xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-zinc-800 shadow-xl hover:shadow-2xl
+                
+                hover:border-violet-600
+                hover:ring-2 hover:ring-violet-600
+                hover:ring-offset-2 hover:ring-offset-white dark:hover:ring-offset-zinc-800
+                 dark:hover:shadow-violet-500/20 dark:hover:border-violet-500 transition-all duration-300 overflow-hidden ${
                 feature.disabled ? "cursor-not-allowed opacity-60" : "cursor-pointer"
               }`}
             >

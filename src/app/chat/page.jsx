@@ -166,7 +166,7 @@ export default function ChatPage() {
       }
       socketRef.current = null;
     };
-  }, [token, ADMIN_USER_ID, SOCKET_URL, queryClient]); // Removed queryClient from dependencies
+  }, [token, ADMIN_USER_ID, SOCKET_URL, queryClient]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });

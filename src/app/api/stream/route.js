@@ -1,35 +1,55 @@
 import { NextResponse } from "next/server";
 
-export async function GET(request) {
-  const url = request.nextUrl.searchParams.get("url");
-  if (!url) {
-    return NextResponse.json({ error: "Missing URL" }, { status: 400 });
+export async function GET(req) {
+  const { searchParams } = new URL(req.url);
+  const targetUrl = searchParams.get("url");
+
+  if (!targetUrl) {
+    return NextResponse.json({ error: "Missing url" }, { status: 400 });
   }
 
   try {
-    const response = await fetch(url);
+    const res = await fetch(targetUrl, {
+      headers: {
+        "User-Agent": "Mozilla/5.0",
+        "Referer": targetUrl,
+      },
+    });
 
-    if (!response.ok) {
-      return NextResponse.json(
-        { error: `Failed to fetch stream: ${response.status}` },
-        { status: 500 }
-      );
+    if (!res.ok) {
+      return NextResponse.json({ error: "Stream fetch failed" }, { status: 500 });
     }
 
-    // Stream the response back to the browser with CORS headers
-    return new NextResponse(response.body, {
-      status: 200,
+    const contentType = res.headers.get("content-type") || "";
+
+    // If NOT an m3u8 file → just pipe it
+    if (!contentType.includes("application/vnd.apple.mpegurl")) {
+      return new NextResponse(res.body, {
+        headers: {
+          "Access-Control-Allow-Origin": "*",
+        },
+      });
+    }
+
+    // Rewrite m3u8 file
+    let text = await res.text();
+
+    const baseUrl = targetUrl.substring(0, targetUrl.lastIndexOf("/") + 1);
+
+    text = text.replace(/^(?!#)(.+)$/gm, (line) => {
+      if (line.startsWith("http")) {
+        return `/api/stream?url=${encodeURIComponent(line)}`;
+      }
+      return `/api/stream?url=${encodeURIComponent(baseUrl + line)}`;
+    });
+
+    return new NextResponse(text, {
       headers: {
         "Content-Type": "application/vnd.apple.mpegurl",
         "Access-Control-Allow-Origin": "*",
-        "Access-Control-Allow-Methods": "GET",
-        "Access-Control-Allow-Headers": "Content-Type",
       },
     });
-  } catch (err) {
-    return NextResponse.json(
-      { error: "Failed to fetch stream" },
-      { status: 500 }
-    );
+  } catch (e) {
+    return NextResponse.json({ error: "Proxy error" }, { status: 500 });
   }
 }

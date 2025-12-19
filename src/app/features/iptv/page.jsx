@@ -7,6 +7,26 @@ import { PLAYLISTS } from "@/utils/playlists";
 import { motion, AnimatePresence } from "framer-motion";
 import { FaList, FaChevronLeft, FaSearch, FaTv } from "react-icons/fa";
 
+/* =========================
+   Browser-playable checker
+========================= */
+const isBrowserPlayable = (url) => {
+  if (!url) return false;
+
+  const u = url.toLowerCase();
+
+  if (
+    u.endsWith(".ts") ||
+    u.includes("/play/") ||
+    u.startsWith("rtsp://") ||
+    u.startsWith("udp://")
+  ) {
+    return false;
+  }
+
+  return u.endsWith(".m3u8") || u.endsWith(".mp4") || u.endsWith(".webm");
+};
+
 const Page = () => {
   const [playlistUrl, setPlaylistUrl] = useState(PLAYLISTS.languages.Punjabi);
   const [channels, setChannels] = useState([]);
@@ -16,27 +36,51 @@ const Page = () => {
   const [showSidebar, setShowSidebar] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
 
+  /* =========================
+     Load & FILTER playlist
+  ========================= */
   useEffect(() => {
     setLoading(true);
+
     fetch(playlistUrl)
       .then((res) => res.text())
       .then((data) => {
         const parsed = parser.parse(data);
-        const items = parsed.items.filter((i) => i.url);
-        setChannels(items.slice(0, 300));
-        setFilteredChannels(items.slice(0, 300));
-        setCurrent(items[0]);
+
+        // ✅ FILTER HERE
+        const playable = parsed.items
+          .filter((ch) => ch.url && isBrowserPlayable(ch.url))
+          .slice(0, 300);
+
+        setChannels(playable);
+        setFilteredChannels(playable);
+        setCurrent(playable[0] || null);
         setLoading(false);
       })
       .catch(() => setLoading(false));
   }, [playlistUrl]);
 
+  /* =========================
+     Search filter
+  ========================= */
   useEffect(() => {
     const filtered = channels.filter((ch) =>
       ch.name?.toLowerCase().includes(searchTerm.toLowerCase())
     );
     setFilteredChannels(filtered);
   }, [searchTerm, channels]);
+
+  /* =========================
+     Remove broken channel
+  ========================= */
+  const handleUnsupported = (badUrl) => {
+    setChannels((prev) => prev.filter((c) => c.url !== badUrl));
+    setFilteredChannels((prev) => prev.filter((c) => c.url !== badUrl));
+
+    if (current?.url === badUrl) {
+      setCurrent(null);
+    }
+  };
 
   return (
     <div className="flex h-screen bg-zinc-950 text-white overflow-hidden relative">
@@ -63,7 +107,7 @@ const Page = () => {
                 <h2 className="text-xl font-bold flex items-center gap-2">
                   <FaTv className="text-violet-500" /> Live Tv Player
                 </h2>
-                <button 
+                <button
                   onClick={() => setShowSidebar(false)}
                   className="p-2 hover:bg-zinc-800 rounded-lg lg:hidden"
                 >
@@ -91,12 +135,9 @@ const Page = () => {
                     <option key={n} value={u}>{n}</option>
                   ))}
                 </optgroup>
-                <optgroup label="All">
-                  <option value={PLAYLISTS.all.All}>All Channels</option>
-                </optgroup>
               </select>
 
-              {/* Search Bar */}
+              {/* Search */}
               <div className="relative">
                 <FaSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500 text-sm" />
                 <input
@@ -111,9 +152,8 @@ const Page = () => {
 
             <div className="flex-1 overflow-y-auto">
               {loading ? (
-                <div className="flex flex-col items-center justify-center h-40 gap-3">
-                  <div className="w-8 h-8 border-4 border-violet-500 border-t-transparent rounded-full animate-spin"></div>
-                  <p className="text-zinc-500 text-sm">Loading channels...</p>
+                <div className="flex items-center justify-center h-40">
+                  Loading…
                 </div>
               ) : (
                 <div className="p-2">
@@ -122,19 +162,15 @@ const Page = () => {
                       key={i}
                       onClick={() => {
                         setCurrent(ch);
-                        // On mobile, close sidebar after selecting
                         if (window.innerWidth < 1024) setShowSidebar(false);
                       }}
-                      className={`w-full text-left p-3 rounded-xl transition-all duration-200 mb-1 flex items-center gap-3 group ${
+                      className={`w-full text-left p-3 rounded-xl mb-1 ${
                         current?.url === ch.url
-                          ? "bg-violet-600 text-white shadow-lg shadow-violet-900/20"
+                          ? "bg-violet-600"
                           : "hover:bg-zinc-800 text-zinc-400 hover:text-white"
                       }`}
                     >
-                      <div className={`w-2 h-2 rounded-full ${current?.url === ch.url ? "bg-white animate-pulse" : "bg-zinc-700 group-hover:bg-violet-500"}`} />
-                      <span className="truncate text-sm font-medium">
-                        {ch.name || "Unnamed Channel"}
-                      </span>
+                      {ch.name || "Unnamed Channel"}
                     </button>
                   ))}
                 </div>
@@ -144,51 +180,15 @@ const Page = () => {
         )}
       </AnimatePresence>
 
-      {/* Main Content / Player Area */}
-      <div className="flex-1 flex flex-col relative">
-        {!showSidebar && (
-           <button
-           onClick={() => setShowSidebar(true)}
-           className="absolute top-4 left-4 z-30 p-3 bg-zinc-800 hover:bg-zinc-700 rounded-full shadow-lg transition-all"
-         >
-           <FaList />
-         </button>
-        )}
-        
-        <div className="flex-1 bg-black flex items-center justify-center">
-          {current ? (
-            <div className="w-full h-full max-h-[calc(100vh-4rem)]">
-              <IPTVPlayer url={current.url} />
-            </div>
-          ) : (
-            <div className="text-center p-10">
-              <div className="w-20 h-20 bg-zinc-900 rounded-full flex items-center justify-center mx-auto mb-6 text-3xl text-violet-500">
-                 <FaTv />
-              </div>
-              <h3 className="text-2xl font-bold mb-2">No Channel Selected</h3>
-              <p className="text-zinc-500">Pick something from the list to start watching.</p>
-            </div>
-          )}
-        </div>
-
-        {/* Info Bar */}
-        {current && (
-           <div className="h-16 bg-zinc-900 border-t border-zinc-800 px-6 flex items-center justify-between">
-              <div className="flex items-center gap-4 truncate">
-                 <div className="w-10 h-10 bg-violet-600/20 rounded-lg flex items-center justify-center text-violet-500 font-bold shrink-0">
-                    {current.name?.charAt(0) || "?"}
-                 </div>
-                 <div className="truncate">
-                    <h4 className="font-bold truncate">{current.name || "Unknown Channel"}</h4>
-                    <p className="text-xs text-zinc-500">Live Streaming</p>
-                 </div>
-              </div>
-              <div className="hidden sm:flex items-center gap-2">
-                 <span className="px-3 py-1 bg-green-500/10 text-green-500 text-[10px] font-bold uppercase tracking-wider rounded-full border border-green-500/20">
-                    Live
-                 </span>
-              </div>
-           </div>
+      {/* Player */}
+      <div className="flex-1 bg-black flex items-center justify-center">
+        {current ? (
+          <IPTVPlayer
+            url={current.url}
+            onUnsupported={handleUnsupported}
+          />
+        ) : (
+          <p>No playable channel selected</p>
         )}
       </div>
     </div>
@@ -196,4 +196,3 @@ const Page = () => {
 };
 
 export default Page;
-
