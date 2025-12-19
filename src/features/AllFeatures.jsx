@@ -2,7 +2,7 @@
 import React from "react";
 import Link from "next/link";
 import { motion } from "framer-motion";
-import { FaTv, FaPalette, FaTools } from "react-icons/fa";
+import { FaTv, FaPalette, FaTools, FaBrain } from "react-icons/fa";
 
 const features = [
   {
@@ -18,6 +18,13 @@ const features = [
     icon: <FaPalette className="text-4xl" />,
     href: "/features/color-generator",
     color: "from-purple-500 via-pink-500 to-rose-600",
+  },
+  {
+    name: "AI Quiz Generator",
+    desc: "Generate customized quizzes on any topic with AI. Test your knowledge with timed quizzes and instant feedback.",
+    icon: <FaBrain className="text-4xl" />,
+    href: "/features/quiz",
+    color: "from-violet-500 to-purple-600",
   },
   {
     name: "More Tools",
