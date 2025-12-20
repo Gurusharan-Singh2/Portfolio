@@ -7,25 +7,7 @@ import { PLAYLISTS } from "@/utils/playlists";
 import { motion, AnimatePresence } from "framer-motion";
 import { FaList, FaChevronLeft, FaSearch, FaTv } from "react-icons/fa";
 
-/* =========================
-   Browser-playable checker
-========================= */
-const isBrowserPlayable = (url) => {
-  if (!url) return false;
 
-  const u = url.toLowerCase();
-
-  if (
-    u.endsWith(".ts") ||
-    u.includes("/play/") ||
-    u.startsWith("rtsp://") ||
-    u.startsWith("udp://")
-  ) {
-    return false;
-  }
-
-  return u.endsWith(".m3u8") || u.endsWith(".mp4") || u.endsWith(".webm");
-};
 
 const Page = () => {
   const [playlistUrl, setPlaylistUrl] = useState(PLAYLISTS.languages.Punjabi);
@@ -36,9 +18,7 @@ const Page = () => {
   const [showSidebar, setShowSidebar] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
 
-  /* =========================
-     Load & FILTER playlist
-  ========================= */
+ 
   useEffect(() => {
     setLoading(true);
 
@@ -47,9 +27,8 @@ const Page = () => {
       .then((data) => {
         const parsed = parser.parse(data);
 
-        // ✅ FILTER HERE
         const playable = parsed.items
-          .filter((ch) => ch.url && isBrowserPlayable(ch.url))
+          .filter((ch) => ch.url)
           .slice(0, 300);
 
         setChannels(playable);
@@ -70,9 +49,7 @@ const Page = () => {
     setFilteredChannels(filtered);
   }, [searchTerm, channels]);
 
-  /* =========================
-     Remove broken channel
-  ========================= */
+
   const handleUnsupported = (badUrl) => {
     setChannels((prev) => prev.filter((c) => c.url !== badUrl));
     setFilteredChannels((prev) => prev.filter((c) => c.url !== badUrl));

@@ -86,9 +86,10 @@ export async function POST(req) {
     const prompt = `Generate ${limit} MCQ questions about "${topic}" (${difficulty} level).${excludeText}
 
 Return ONLY valid JSON array. Format:
-[{"question":"Q text","options":["A","B","C","D"],"answer":"A","solution":"Why A"}]
+[{"question":"Question text","options":["Option 1","Option 2","Option 3","Option 4"],"answer":"Correct Option Text","solution":"Detailed step-by-step explanation of the solution. For reasoning/math, show the logic. For theory, explain the concept."}]
 
-Be concise. Start response with [ and end with ]. No markdown, no explanations.`;
+Ensure "answer" matches exactly one of the strings in "options".
+Start response with [ and end with ]. No markdown, no explanations outside JSON.`;
 
     // Use Groq API (ultra-fast and reliable) with retry logic
     let lastError = null;
