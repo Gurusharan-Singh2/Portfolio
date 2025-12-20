@@ -6,6 +6,12 @@ const UserSchema = new mongoose.Schema({
   isAdmin: { type: Boolean, default: false },
   resetToken: { type: String },
   resetTokenExpires: { type: Date },
+  dailyQuizCount: { type: Number, default: 0 },
+  lastQuizDate: { type: Date, default: Date.now },
+  isSubscribed: { type: Boolean, default: false },
+  subscriptionId: { type: String },
+  subscriptionStartDate: { type: Date },
+  subscriptionEndDate: { type: Date },
 });
 
 export default mongoose.models.User || mongoose.model("User", UserSchema);

@@ -12,6 +12,7 @@ import {
   LogOut,
   Menu,
   Folder,
+  Crown,
 } from "lucide-react";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 
@@ -74,6 +75,12 @@ export default function AdminLayout({ children }) {
       icon: Settings,
       href: "/admin/settings",
       color: "text-pink-700",
+    },
+    {
+      label: "Subscriptions",
+      icon: Crown,
+      href: "/admin/subscriptions",
+      color: "text-yellow-500",
     },
   ];
 

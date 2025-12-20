@@ -1,6 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { FaCrown } from "react-icons/fa";
+import SubscriptionModal from "@/components/SubscriptionModal";
 
 const SUBJECTS = {
   aptitude: {
@@ -62,10 +64,33 @@ export default function Page() {
   const [score, setScore] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [userData, setUserData] = useState(null); // Stores user profile & limits
   const [enableTimer, setEnableTimer] = useState(false);
   const [timerMinutes, setTimerMinutes] = useState(10);
   const [timeLeft, setTimeLeft] = useState(null);
   const [timerInterval, setTimerInterval] = useState(null);
+  const [showSubscriptionModal, setShowSubscriptionModal] = useState(false);
+
+  useEffect(() => {
+    fetchUserData();
+  }, []);
+
+  const fetchUserData = async () => {
+    try {
+      const token = localStorage.getItem("token") || document.cookie.split("token=")[1]?.split(";")[0];
+      if (!token) return;
+
+      const res = await fetch("/api/auth/me", {
+        headers: { "Authorization": `Bearer ${token}` }
+      });
+      const data = await res.json();
+      if (data.user) {
+        setUserData(data.user);
+      }
+    } catch (err) {
+      console.error("Failed to load user data");
+    }
+  };
 
   const handleSubjectChange = (e) => {
     setSubject(e.target.value);
@@ -95,17 +120,24 @@ export default function Page() {
     setScore(null);
 
     try {
+      // Get token from localStorage or cookie
+      const token = localStorage.getItem("token") || document.cookie.split("token=")[1]?.split(";")[0];
+      
       const res = await fetch("/api/generate-quiz", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { 
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`
+        },
         body: JSON.stringify({ topic, limit, difficulty }),
       });
       
       const data = await res.json();
       
-      if (data.quiz && data.quiz.length > 0) {
+        if (data.quiz && data.quiz.length > 0) {
         setQuiz(data.quiz);
         setError("");
+        fetchUserData(); // effective update of counts
         
         // Start timer if enabled
         if (enableTimer) {
@@ -114,8 +146,13 @@ export default function Page() {
           startTimer(totalSeconds);
         }
       } else {
-        const errorMsg = data.error || "Failed to generate quiz";
-        setError(errorMsg);
+        if (res.status === 403 && data.code === "LIMIT_REACHED") {
+          setShowSubscriptionModal(true);
+          setError(data.error);
+        } else {
+          const errorMsg = data.error || "Failed to generate quiz";
+          setError(errorMsg);
+        }
         console.error("Quiz generation error:", data);
       }
     } catch (err) {
@@ -209,6 +246,44 @@ export default function Page() {
           <p className="text-center text-xs sm:text-sm text-gray-600 dark:text-gray-400">
             Test your knowledge with AI-generated quizzes
           </p>
+          
+          {/* User Status Badge */}
+          {userData && (
+            <div className="flex justify-center mt-4">
+                {userData.isSubscribed ? (
+                    <div className="flex flex-col items-center gap-2">
+                        <div className="flex items-center gap-2 px-4 py-1.5 bg-gradient-to-r from-yellow-500/20 to-amber-500/20 border border-yellow-500/50 rounded-full text-yellow-500 text-sm font-bold">
+                            <FaCrown /> PREMIUM MEMBER
+                        </div>
+                        {userData.subscriptionEndDate && (
+                            <div className="flex gap-4 text-xs text-zinc-600 dark:text-zinc-400">
+                                <span>Started: <strong>{new Date(userData.subscriptionStartDate).toLocaleDateString()}</strong></span>
+                                <span>•</span>
+                                <span>Expires: <strong>{new Date(userData.subscriptionEndDate).toLocaleDateString()}</strong></span>
+                                <span>•</span>
+                                <span className="text-green-600 dark:text-green-400 font-semibold">
+                                    {Math.max(0, Math.ceil((new Date(userData.subscriptionEndDate) - new Date()) / (1000 * 60 * 60 * 24)))} Days Left
+                                </span>
+                            </div>
+                        )}
+                    </div>
+                ) : (
+                    <div className="flex items-center gap-3">
+                        <div className="px-4 py-1.5 bg-zinc-100 dark:bg-zinc-700 rounded-full text-zinc-600 dark:text-zinc-300 text-sm font-medium">
+                            Free Quizzes: <span className={userData.dailyQuizCount >= 3 ? "text-red-500 font-bold" : "text-green-500 font-bold"}>
+                                {Math.max(0, 3 - (userData.dailyQuizCount || 0))}
+                            </span> / 3 Left
+                        </div>
+                        <button 
+                            onClick={() => setShowSubscriptionModal(true)}
+                            className="text-xs font-bold text-violet-600 dark:text-violet-400 hover:underline"
+                        >
+                            Upgrade to Unlimited ⚡
+                        </button>
+                    </div>
+                )}
+            </div>
+          )}
         </div>
 
         {/* Error Alert */}
@@ -494,6 +569,16 @@ export default function Page() {
           </div>
         )}
       </div>
+
+      <SubscriptionModal 
+        isOpen={showSubscriptionModal} 
+        onClose={() => setShowSubscriptionModal(false)}
+        onSuccess={() => {
+            setShowSubscriptionModal(false);
+            setError("");
+            alert("Subscription successful! You can now generate unlimited quizzes.");
+        }}
+      />
     </div>
   );
 }

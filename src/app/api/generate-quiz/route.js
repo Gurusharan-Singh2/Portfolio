@@ -1,5 +1,8 @@
 // /app/api/generate-quiz/route.js
 import { NextResponse } from "next/server";
+import connectToDatabase from "@/lib/mongo";
+import User from "@/models/user";
+import { verifyToken } from "@/lib/auth";
 
 /**
  * Extracts JSON array from text that may contain additional content
@@ -64,6 +67,49 @@ function extractJSON(text) {
 
 export async function POST(req) {
   try {
+    await connectToDatabase();
+    
+    // 1. Authenticate (Optional but recommended to track limits)
+    // We'll check for token, if present we track usage. If strict login required, enforce it.
+    // For this requirement: "user need login to run a quiz", so we enforce it.
+    
+    const token = req.headers.get("authorization")?.split(" ")[1];
+    if (!token) {
+      return NextResponse.json({ error: "Authentication required to generate quizzes" }, { status: 401 });
+    }
+    
+    const decoded = verifyToken(token);
+    if (!decoded) {
+      return NextResponse.json({ error: "Invalid token" }, { status: 401 });
+    }
+
+    const user = await User.findById(decoded.id);
+    if (!user) {
+      return NextResponse.json({ error: "User not found" }, { status: 404 });
+    }
+
+    // 2. Check Daily Limit
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    const lastQuizDate = new Date(user.lastQuizDate || 0);
+    lastQuizDate.setHours(0, 0, 0, 0);
+
+    // Reset count if new day
+    if (lastQuizDate < today) {
+      user.dailyQuizCount = 0;
+      user.lastQuizDate = Date.now();
+      await user.save();
+    }
+
+    // Check limit (3 free quizzes)
+    if (!user.isSubscribed && user.dailyQuizCount >= 3) {
+      return NextResponse.json({ 
+        error: "Daily limit reached. Subscribe for unlimited quizzes!",
+        code: "LIMIT_REACHED" 
+      }, { status: 403 });
+    }
+
     const { topic, limit = 5, difficulty = "medium", excludeQuestions = [] } = await req.json();
 
     if (!topic) {
@@ -86,10 +132,13 @@ export async function POST(req) {
     const prompt = `Generate ${limit} MCQ questions about "${topic}" (${difficulty} level).${excludeText}
 
 Return ONLY valid JSON array. Format:
-[{"question":"Question text","options":["Option 1","Option 2","Option 3","Option 4"],"answer":"Correct Option Text","solution":"Detailed step-by-step explanation of the solution. For reasoning/math, show the logic. For theory, explain the concept."}]
+[{"question":"Question text","options":["Option 1","Option 2","Option 3","Option 4"],"answer":"Correct Option Text","solution":"Concise explanation (max 2 sentences). Show math logic briefly if needed."}]
 
-Ensure "answer" matches exactly one of the strings in "options".
-Start response with [ and end with ]. No markdown, no explanations outside JSON.`;
+Rules:
+1. "answer" MUST match exactly one of the options.
+2. "solution" MUST be short and to the point. NO verbose explanations.
+3. Response MUST be a valid JSON array.
+4. No markdown, no code blocks, no extra text. Start with [ and end with ].`;
 
     // Use Groq API (ultra-fast and reliable) with retry logic
     let lastError = null;
@@ -189,6 +238,11 @@ Start response with [ and end with ]. No markdown, no explanations outside JSON.
         }
 
         // Return whatever valid questions we got (even if less than requested)
+        // Increment usage count for non-admin/subscribed users (or everyone to track usage)
+        user.dailyQuizCount += 1;
+        user.lastQuizDate = Date.now();
+        await user.save();
+
         console.log(`Returning ${validQuiz.length} valid questions out of ${quizJSON.length} total`);
         return NextResponse.json({ quiz: validQuiz });
 
