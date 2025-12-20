@@ -21,6 +21,7 @@ export default function EditProjectPage({ params }) {
   // Fetch project on mount
   useEffect(() => {
     fetchProject();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const fetchProject = async () => {

@@ -19,6 +19,7 @@ import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 export default function AdminLayout({ children }) {
   const router = useRouter();
   const pathname = usePathname();
+  // eslint-disable-next-line no-unused-vars
   const [user, setUser] = useState(null);
   const [mounted, setMounted] = useState(false);
 

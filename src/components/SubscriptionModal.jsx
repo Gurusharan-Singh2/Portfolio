@@ -1,5 +1,4 @@
 
-import { useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { FaCrown, FaCheck, FaTimes } from "react-icons/fa";
 
@@ -114,7 +113,7 @@ const SubscriptionModal = ({ isOpen, onClose, onSuccess }) => {
                 Unlock Unlimited Quizzes
               </h2>
               <p className="text-zinc-600 dark:text-zinc-400">
-                You've reached your daily limit of 3 free quizzes.
+                You&apos;ve reached your daily limit of 3 free quizzes.
               </p>
             </div>
 

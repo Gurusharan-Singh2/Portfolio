@@ -60,6 +60,7 @@ export default function IPTVPlayer({ url, onUnsupported }) {
     return () => {
       if (hls) hls.destroy();
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [url]);
 
   return (

@@ -163,6 +163,7 @@ export default function Page() {
     }
   };
 
+  // eslint-disable-next-line no-unused-vars
   const startTimer = (seconds) => {
     // Clear any existing interval
     if (timerInterval) clearInterval(timerInterval);

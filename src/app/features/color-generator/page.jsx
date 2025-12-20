@@ -27,6 +27,7 @@ const ColorGenerator = () => {
     };
     window.addEventListener("keydown", handleKeyPress);
     return () => window.removeEventListener("keydown", handleKeyPress);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mode]);
 
  
@@ -124,6 +125,7 @@ const ColorGenerator = () => {
       })
     );
     setTimeout(() => setIsGenerating(false), 300);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mode]);
 
   
@@ -274,11 +276,6 @@ const ColorGenerator = () => {
           className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6"
         >
           {colors.map((colorObj, index) => {
-            // Determine if background is dark (for solid colors only)
-            const isDark = mode === "solid"
-              ? (colorObj.rgb.r * 299 + colorObj.rgb.g * 587 + colorObj.rgb.b * 114) / 1000 < 128
-              : true; // Always use white text for gradients
-
             // Background style
             const bgStyle = mode === "solid"
               ? { backgroundColor: `rgb(${colorObj.rgb.r}, ${colorObj.rgb.g}, ${colorObj.rgb.b})` }

@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server";
-import crypto from "crypto";
 import { connectDB } from "@/lib/mongo";
 import User from "@/models/user";
 import sendEmail from "@/utils/Email";

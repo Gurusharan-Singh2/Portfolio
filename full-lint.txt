@@ -1,0 +1,32 @@
+
+./src/app/admin/layout.jsx
+22:10  Warning: 'user' is assigned a value but never used.  no-unused-vars
+
+./src/app/admin/projects/add/page.jsx
+176:15  Warning: Using `<img>` could result in slower LCP and higher bandwidth. Consider using `<Image />` from `next/image` to automatically optimize images. This may incur additional usage or cost from your provider. See: https://nextjs.org/docs/messages/no-img-element  @next/next/no-img-element
+
+./src/app/admin/projects/edit/[id]/page.jsx
+24:6  Warning: React Hook useEffect has a missing dependency: 'fetchProject'. Either include it or remove the dependency array.  react-hooks/exhaustive-deps
+212:17  Warning: Using `<img>` could result in slower LCP and higher bandwidth. Consider using `<Image />` from `next/image` to automatically optimize images. This may incur additional usage or cost from your provider. See: https://nextjs.org/docs/messages/no-img-element  @next/next/no-img-element
+
+./src/app/admin/projects/page.jsx
+111:17  Warning: Using `<img>` could result in slower LCP and higher bandwidth. Consider using `<Image />` from `next/image` to automatically optimize images. This may incur additional usage or cost from your provider. See: https://nextjs.org/docs/messages/no-img-element  @next/next/no-img-element
+
+./src/app/admin/subscriptions/page.jsx
+4:46  Warning: 'FaTimes' is defined but never used.  no-unused-vars
+
+./src/app/api/auth/forgot-password/route.js
+2:8  Warning: 'crypto' is defined but never used.  no-unused-vars
+
+./src/app/features/color-generator/page.jsx
+30:6  Warning: React Hook useEffect has a missing dependency: 'handleGenerate'. Either include it or remove the dependency array.  react-hooks/exhaustive-deps
+127:6  Warning: React Hook useCallback has a missing dependency: 'generateRandomRGB'. Either include it or remove the dependency array.  react-hooks/exhaustive-deps
+278:19  Warning: 'isDark' is assigned a value but never used.  no-unused-vars
+
+./src/app/features/quiz/page.jsx
+166:23  Warning: 'seconds' is defined but never used.  no-unused-vars
+
+./src/components/IPTVPlayer.jsx
+63:6  Warning: React Hook useEffect has a missing dependency: 'onUnsupported'. Either include it or remove the dependency array. If 'onUnsupported' changes too often, find the parent component that defines it and wrap that definition in useCallback.  react-hooks/exhaustive-deps
+
+info  - Need to disable some ESLint rules? Learn more here: https://nextjs.org/docs/basic-features/eslint#disabling-rules

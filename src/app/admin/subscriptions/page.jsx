@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { FaCrown, FaSearch, FaUser, FaCheck, FaTimes, FaRupeeSign } from "react-icons/fa";
+import { FaCrown, FaSearch, FaUser, FaCheck, FaRupeeSign } from "react-icons/fa";
 
 export default function SubscriptionsAdmin() {
   const [users, setUsers] = useState([]);
