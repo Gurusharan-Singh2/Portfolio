@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { FaCrown } from "react-icons/fa";
+import { motion, AnimatePresence } from "framer-motion";
 import SubscriptionModal from "@/components/SubscriptionModal";
 
 const SUBJECTS = {
@@ -70,6 +71,7 @@ export default function Page() {
   const [timeLeft, setTimeLeft] = useState(null);
   const [timerInterval, setTimerInterval] = useState(null);
   const [showSubscriptionModal, setShowSubscriptionModal] = useState(false);
+  const [toasts, setToasts] = useState([]);
 
   useEffect(() => {
     fetchUserData();
@@ -134,6 +136,14 @@ export default function Page() {
       
       const data = await res.json();
       
+      // Check for 401 Unauthorized (user not logged in)
+      if (res.status === 401) {
+        showToast("Login is Required");
+        setError("");
+        setLoading(false);
+        return;
+      }
+      
         if (data.quiz && data.quiz.length > 0) {
         setQuiz(data.quiz);
         setError("");
@@ -161,6 +171,13 @@ export default function Page() {
     } finally {
       setLoading(false);
     }
+  };
+
+  // Show toast notification
+  const showToast = (message) => {
+    const id = Date.now();
+    setToasts(prev => [...prev, { id, message }]);
+    setTimeout(() => setToasts(prev => prev.filter(t => t.id !== id)), 3000);
   };
 
   // eslint-disable-next-line no-unused-vars
@@ -580,6 +597,23 @@ export default function Page() {
             alert("Subscription successful! You can now generate unlimited quizzes.");
         }}
       />
+
+      {/* Toast Notifications */}
+      <AnimatePresence>
+        {toasts.map((toast, i) => (
+          <motion.div
+            key={toast.id}
+            initial={{ opacity: 0, x: 100 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: 100 }}
+            className="fixed right-4 px-6 py-3 rounded-full shadow-2xl bg-red-600 text-white font-semibold flex items-center gap-2 max-w-md z-50"
+            style={{ top: 80 + i * 60 }}
+          >
+            <span className="text-lg">⚠️</span>
+            <span className="truncate">{toast.message}</span>
+          </motion.div>
+        ))}
+      </AnimatePresence>
     </div>
   );
 }

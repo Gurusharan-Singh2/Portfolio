@@ -50,14 +50,7 @@ const Page = () => {
   }, [searchTerm, channels]);
 
 
-  const handleUnsupported = (badUrl) => {
-    setChannels((prev) => prev.filter((c) => c.url !== badUrl));
-    setFilteredChannels((prev) => prev.filter((c) => c.url !== badUrl));
 
-    if (current?.url === badUrl) {
-      setCurrent(null);
-    }
-  };
 
   return (
     <div className="flex h-screen bg-zinc-950 text-white overflow-hidden relative">
@@ -162,7 +155,7 @@ const Page = () => {
         {current ? (
           <IPTVPlayer
             url={current.url}
-            onUnsupported={handleUnsupported}
+            
           />
         ) : (
           <p>No playable channel selected</p>

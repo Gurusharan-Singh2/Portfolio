@@ -1,67 +1,36 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import Hls from "hls.js";
 
-const isBrowserPlayable = (url) => {
-  if (!url) return false;
-
-  const u = url.toLowerCase();
-
-  // ❌ VLC-only / unsupported
-  if (
-    u.endsWith(".ts") ||
-    u.includes("/play/") ||
-    u.startsWith("rtsp://") ||
-    u.startsWith("udp://")
-  ) {
-    return false;
-  }
-
-  // ✅ Browser supported
-  return u.endsWith(".m3u8") || u.endsWith(".mp4") || u.endsWith(".webm");
-};
-
-export default function IPTVPlayer({ url, onUnsupported }) {
+export default function IPTVPlayer({ url }) {
   const videoRef = useRef(null);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
-    if (!url || !videoRef.current) return;
-
-    // 🚫 Block unsupported channels
-    if (!isBrowserPlayable(url)) {
-      onUnsupported?.(url);
-      return;
-    }
+    if (!url) return;
+    
 
     let hls;
 
-    const proxiedUrl = `/api/stream?url=${encodeURIComponent(url)}`;
-
-    if (Hls.isSupported() && url.endsWith(".m3u8")) {
-      hls = new Hls({
-        enableWorker: true,
-        lowLatencyMode: true,
-      });
-
-      hls.loadSource(proxiedUrl);
+    if (Hls.isSupported()) {
+      hls = new Hls();
+      hls.loadSource(url);
       hls.attachMedia(videoRef.current);
-
-      hls.on(Hls.Events.ERROR, (_, data) => {
-        if (data.fatal) {
-          hls.destroy();
-          onUnsupported?.(url);
-        }
-      });
     } else {
-      videoRef.current.src = proxiedUrl;
+      videoRef.current.src = url;
     }
 
-    return () => {
-      if (hls) hls.destroy();
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    return () => hls && hls.destroy();
   }, [url]);
+
+  if (error) {
+    return (
+      <div className="w-full h-full bg-black text-white flex items-center justify-center">
+        {error}
+      </div>
+    );
+  }
 
   return (
     <video
